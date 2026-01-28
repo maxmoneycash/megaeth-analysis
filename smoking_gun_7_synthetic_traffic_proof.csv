@@ -1,0 +1,5 @@
+category,percentage,tx_count,pattern,evidence,verdict
+DUST_SPAM,71.0%,~15000/block,Self-transfers of 0 ETH,Same from/to address | 0 ETH value | Exactly 120000 gas,FAKE - Useless self-transfers
+FAKE_DEX_SWAPS,28.4%,~6000/block,Uniswap execute() with 0 value,All to 0xaab1c664cead881afbb58555e6a3a79523d3e4c0 | 0 ETH value | Exactly 396614 gas,FAKE - Scripted bot activity
+SYSTEM_TXS,0.5%,~100/block,L2 system operations,From 0xdead...0001 | To 0x4200... | 0 gas price,INFRASTRUCTURE - Not user activity
+REAL_ACTIVITY,<0.1%,<20/block,Actual user transactions,Variable gas | Non-zero values | Diverse methods,REAL - Negligible volume
