@@ -2085,8 +2085,10 @@
         if (tpsEl) tpsEl.textContent = formatNumber(Math.round(displayTps));
       }
 
-      if (state.currentLatency > 0) {
-        displayLatency += (state.currentLatency - displayLatency) * smoothing;
+      // Use real latency from miniblocks.io WebSocket, not estimated
+      const realLatency = latencyStats.totalLatency || state.currentLatency;
+      if (realLatency > 0) {
+        displayLatency += (realLatency - displayLatency) * smoothing;
         const latEl = document.getElementById('latencyValue');
         if (latEl) latEl.innerHTML = `${Math.round(displayLatency)}<span class="chart-value-unit">ms</span>`;
       }
@@ -2301,33 +2303,38 @@
           lastUpdate: Date.now(),
         };
 
-        // Only use API data as fallback when WebSocket is NOT connected
-        // WebSocket provides real-time data; API is polled every 5 seconds
-        if (state.wsConnected) {
-          console.log('[miniblocks.io] WebSocket connected, skipping API fallback');
+        // Check if WebSocket is providing real latency data
+        const wsHasLatencyData = window._lastLatencyHistoryUpdate &&
+                                  (Date.now() - window._lastLatencyHistoryUpdate < 3000);
+
+        // If WebSocket is connected AND providing latency data, skip API fallback for main stats
+        if (state.wsConnected && wsHasLatencyData) {
+          console.log('[miniblocks.io] WebSocket providing latency data, skipping API fallback');
           return;
         }
 
-        // Use API data as fallback
-        state.tps = miniblocksApiData.tps;
-        state.mgas = miniblocksApiData.gasPerSec;
-        state.connected = true;
-        if (state.tps > state.peakTps) state.peakTps = state.tps;
+        // Use API data as fallback (or supplement if WS doesn't have latency)
+        if (!state.wsConnected) {
+          state.tps = miniblocksApiData.tps;
+          state.mgas = miniblocksApiData.gasPerSec;
+          state.connected = true;
+          if (state.tps > state.peakTps) state.peakTps = state.tps;
 
-        // Estimate synthetic traffic based on known patterns
-        const syntheticRatio = 0.998;
-        spammerStats.recentTotalTxs = Math.round(miniblocksApiData.tps * 5);
-        spammerStats.recentSpamTxs = Math.round(spammerStats.recentTotalTxs * syntheticRatio);
-        spammerStats.isActive = true;
-        spammerStats.lastUpdate = Date.now();
+          // Estimate synthetic traffic based on known patterns
+          const syntheticRatio = 0.998;
+          spammerStats.recentTotalTxs = Math.round(miniblocksApiData.tps * 5);
+          spammerStats.recentSpamTxs = Math.round(spammerStats.recentTotalTxs * syntheticRatio);
+          spammerStats.isActive = true;
+          spammerStats.lastUpdate = Date.now();
 
-        // Breakdown based on observed ratios
-        const dustRatio = 0.63;
-        const dexRatio = 0.37;
-        spammerStats.dustTransferCount = Math.round(miniblocksApiData.tps * dustRatio * 5);
-        spammerStats.dexSwapCount = Math.round(miniblocksApiData.tps * dexRatio * 5);
+          // Breakdown based on observed ratios
+          const dustRatio = 0.63;
+          const dexRatio = 0.37;
+          spammerStats.dustTransferCount = Math.round(miniblocksApiData.tps * dustRatio * 5);
+          spammerStats.dexSwapCount = Math.round(miniblocksApiData.tps * dexRatio * 5);
+        }
 
-        // Estimate latency (only used when WebSocket not available)
+        // Always estimate latency if WebSocket isn't providing it
         const estimatedNetworkLatency = Math.round(miniblocksApiData.blockTime * 50 + 100);
         const estimatedClientLatency = Math.round(50 + Math.random() * 30);
         const estimatedTotalLatency = estimatedNetworkLatency + estimatedClientLatency;
@@ -2357,8 +2364,9 @@
         updateSpammerPanel();
         updateLatencyUI();
         updateUI();
+        const mode = state.wsConnected ? 'WS connected but no latency' : 'fallback mode';
         console.log('[miniblocks.io API] TPS:', miniblocksApiData.tps.toFixed(0),
-                    'Est. Latency:', estimatedTotalLatency + 'ms (fallback mode)');
+                    'Est. Latency:', estimatedTotalLatency + 'ms (' + mode + ')');
       } catch (err) {
         console.warn('[miniblocks.io] Fetch error:', err.message);
       }
