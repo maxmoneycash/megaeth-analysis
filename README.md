@@ -1,6 +1,57 @@
-# MegaViz
+# MegaETH Analysis Dashboard
 
-**The ultimate real-time analytics dashboard for MegaETH** — visualizing the world's first real-time blockchain with spirals, flames, and rivers.
+**Stress test analysis and anomaly detection for MegaETH** — real-time monitoring, historical replay, and synthetic traffic identification.
+
+---
+
+## Quick Start - Dashboard URLs
+
+Run `npm install && npm run dev` then open:
+
+| Dashboard | URL | Description |
+|-----------|-----|-------------|
+| **Stress Test Dashboard** | http://localhost:5173/megaeth-stress-test.html | Main analysis dashboard with TPS, gas, latency, synthetic traffic detection |
+| **Anomaly Replay** | http://localhost:5173/anomaly-replay.html | Historical data replay with gas spike timestamps |
+| **Block Production** | http://localhost:5173/src/viz/BlockChart/megaeth-block-production.html | Real-time block production visualization |
+| **Synthetic Traffic Monitor** | http://localhost:5173/src/viz/SyntheticTrafficMonitor/synthetic-traffic-monitor.html | Live transaction stream analysis |
+| **Ring Radar** | http://localhost:5173/src/viz/RingRadar/ring-radar.html | Multi-metric capacity utilization |
+| **Deployment Heatmap** | http://localhost:5173/src/viz/DeploymentHeatmap/contract-deployment-heatmap.html | Contract deployment activity |
+| **Success/Fail Chart** | http://localhost:5173/src/viz/SuccessFailChart/success-fail-chart.html | Transaction success rate over time |
+
+### One-liner startup:
+```bash
+./start-dashboard.sh
+```
+
+---
+
+## Anomaly Data
+
+All detected anomalies are in **`anomalies.csv`** with columns:
+- `timestamp_iso` - ISO 8601 timestamp
+- `timestamp_unix` - Unix timestamp
+- `type` - GAS_SPIKE, LATENCY_MEASUREMENT, TPS_DROP, BASELINE_SAMPLE, etc.
+- `severity` - critical, warning, info
+- `metric_name` - gas_per_second, tx_latency, tps, block_interval
+- `value` - Numeric value
+- `unit` - MGas/s, ms, K TPS, etc.
+- `message` - Human readable description
+- `tx_hash` - Transaction hash (for latency measurements)
+
+---
+
+## Key Findings (Jan 22-27, 2026 Stress Test)
+
+| Metric | Claimed | Measured | Verdict |
+|--------|---------|----------|---------|
+| **Latency** | 55ms | 1,533ms avg (p95: 4,000ms) | **28x WORSE** |
+| **TPS** | 100,000+ | 36 TPS (organic) | **99%+ synthetic** |
+| **Gas Price** | Dynamic | Fixed 0.001 gwei | **EIP-1559 DISABLED** |
+| **Traffic** | Organic | ~71% dust spam, ~29% DEX spam | **~0% organic** |
+
+---
+
+## Original README
 
 ![MegaETH](https://img.shields.io/badge/MegaETH-Frontier-00D9A5?style=flat-square)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square)
