@@ -1,0 +1,12 @@
+# Build output
+/target/
+
+# Environment files
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store

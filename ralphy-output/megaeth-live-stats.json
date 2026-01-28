@@ -1,0 +1,17 @@
+{
+  "data": {
+    "historical_tps_3h": {
+      "timestamp": 1769104861,
+      "value": 16034.1
+    },
+    "historical_mini_block_interval_3h": {
+      "timestamp": 1769104861,
+      "value": 9.756098
+    },
+    "historical_gas_per_second_3h": {
+      "timestamp": 1769104861,
+      "value": 1749224400
+    }
+  },
+  "type": "history_delta"
+}

@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MegaETH Anomaly Replay - Historical Analysis</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #0D0D12;
+      font-family: "SF Mono", "Monaco", "Inconsolata", monospace;
+      color: #fff;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .subtitle {
+      color: #888;
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+
+    /* Control Panel */
+    .controls {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    label {
+      color: #888;
+      font-size: 12px;
+    }
+
+    select, button, input {
+      background: #1a1a24;
+      border: 1px solid #333;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    select:hover, button:hover {
+      border-color: #555;
+    }
+
+    button.primary {
+      background: #00D9A5;
+      color: #000;
+      font-weight: 600;
+    }
+
+    button.primary:hover {
+      background: #00ffbb;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Timeline */
+    .timeline-container {
+      background: #16161D;
+      border: 1px solid #2A2A3A;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+
+    .timeline-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .timeline-title {
+      font-size: 14px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .timeline {
+      position: relative;
+      height: 80px;
+      background: #0D0D12;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .timeline-canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Anomaly List */
+    .anomaly-list {
+      background: #16161D;
+      border: 1px solid #2A2A3A;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .anomaly-list-title {
+      font-size: 14px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+
+    .anomaly-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px;
+      background: #0D0D12;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .anomaly-item:hover {
+      background: #1a1a24;
+      border-left: 2px solid #00D9A5;
+    }
+
+    .anomaly-item.selected {
+      background: #1a2a24;
+      border-left: 2px solid #00D9A5;
+    }
+
+    .anomaly-icon {
+      font-size: 20px;
+    }
+
+    .anomaly-info {
+      flex: 1;
+    }
+
+    .anomaly-time {
+      font-size: 12px;
+      color: #00D9A5;
+      margin-bottom: 4px;
+    }
+
+    .anomaly-message {
+      font-size: 13px;
+      color: #ddd;
+    }
+
+    .anomaly-severity {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .anomaly-severity.critical {
+      background: #ff3b3040;
+      color: #ff6b6b;
+    }
+
+    .anomaly-severity.warning {
+      background: #ff990040;
+      color: #ffaa00;
+    }
+
+    /* Charts Grid */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    @media (min-width: 1024px) {
+      .charts-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .chart-card {
+      background: #16161D;
+      border: 1px solid #2A2A3A;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid #2A2A3A;
+    }
+
+    .chart-title {
+      font-size: 14px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .chart-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #00D9A5;
+    }
+
+    .chart-value-unit {
+      font-size: 14px;
+      color: #888;
+    }
+
+    .chart-body {
+      height: 200px;
+      background: #0D0D12;
+    }
+
+    .chart-canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Replay Controls */
+    .replay-controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 24px;
+      padding: 16px;
+      background: #16161D;
+      border: 1px solid #2A2A3A;
+      border-radius: 8px;
+    }
+
+    .replay-time {
+      font-size: 18px;
+      font-weight: 600;
+      color: #00D9A5;
+      min-width: 200px;
+    }
+
+    .playback-speed {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .speed-btn {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    .speed-btn.active {
+      background: #00D9A5;
+      color: #000;
+    }
+
+    /* Status */
+    .status {
+      text-align: center;
+      padding: 40px;
+      color: #888;
+    }
+
+    .status.loading::after {
+      content: '';
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #333;
+      border-top-color: #00D9A5;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-left: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎬 MegaETH Anomaly Replay</h1>
+    <p class="subtitle">Historical analysis of gas spikes, TPS drops, and latency anomalies</p>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div class="control-group">
+        <label>Data Source:</label>
+        <select id="dataSource">
+          <option value="live">Fetch Live Data</option>
+          <option value="file">Load from File</option>
+        </select>
+      </div>
+      <button id="loadBtn" class="primary">Load Data</button>
+      <input type="file" id="fileInput" accept=".json" style="display:none;">
+      <span id="statusText" class="status-text"></span>
+    </div>
+
+    <!-- Replay Controls -->
+    <div class="replay-controls" style="display:none;" id="replayControlsPanel">
+      <button id="playPauseBtn">▶️ Play</button>
+      <button id="stepBackBtn">⏮️ -10s</button>
+      <button id="stepFwdBtn">⏭️ +10s</button>
+      <div class="replay-time" id="replayTime">--:--:--</div>
+      <div class="playback-speed">
+        <label>Speed:</label>
+        <button class="speed-btn" data-speed="0.5">0.5x</button>
+        <button class="speed-btn active" data-speed="1">1x</button>
+        <button class="speed-btn" data-speed="2">2x</button>
+        <button class="speed-btn" data-speed="5">5x</button>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="timeline-container" id="timelineContainer" style="display:none;">
+      <div class="timeline-header">
+        <span class="timeline-title">📈 7-Day Timeline (Click to Jump)</span>
+        <span id="timelineRange">--</span>
+      </div>
+      <div class="timeline">
+        <canvas id="timelineCanvas" class="timeline-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Anomaly List -->
+    <div class="anomaly-list" id="anomalyList" style="display:none;">
+      <div class="anomaly-list-title">🚨 Top Anomalies (Click to Replay)</div>
+      <div id="anomalyItems"></div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid" id="chartsGrid" style="display:none;">
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">🔥 Gas Usage</span>
+          <span class="chart-value" id="gasValue">--<span class="chart-value-unit"> MGas/s</span></span>
+        </div>
+        <div class="chart-body">
+          <canvas id="gasChart" class="chart-canvas"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">📈 TPS</span>
+          <span class="chart-value" id="tpsValue">--<span class="chart-value-unit"> K</span></span>
+        </div>
+        <div class="chart-body">
+          <canvas id="tpsChart" class="chart-canvas"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">⏱️ Block Interval</span>
+          <span class="chart-value" id="intervalValue">--<span class="chart-value-unit"> ms</span></span>
+        </div>
+        <div class="chart-body">
+          <canvas id="intervalChart" class="chart-canvas"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">📊 Synthetic Traffic %</span>
+          <span class="chart-value" id="syntheticValue">--<span class="chart-value-unit"> %</span></span>
+        </div>
+        <div class="chart-body">
+          <canvas id="syntheticChart" class="chart-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Initial Status -->
+    <div class="status" id="initialStatus">
+      Click "Load Data" to fetch historical metrics from MegaETH Dashboard
+    </div>
+  </div>
+
+  <script>
+    // State
+    let reportData = null;
+    let isPlaying = false;
+    let playbackSpeed = 1;
+    let currentTimeIndex = 0;
+    let playbackInterval = null;
+
+    // DOM elements
+    const loadBtn = document.getElementById('loadBtn');
+    const dataSource = document.getElementById('dataSource');
+    const fileInput = document.getElementById('fileInput');
+    const statusText = document.getElementById('statusText');
+    const initialStatus = document.getElementById('initialStatus');
+    const timelineContainer = document.getElementById('timelineContainer');
+    const anomalyList = document.getElementById('anomalyList');
+    const chartsGrid = document.getElementById('chartsGrid');
+    const replayControlsPanel = document.getElementById('replayControlsPanel');
+
+    // Chart canvases
+    const timelineCanvas = document.getElementById('timelineCanvas');
+    const gasChart = document.getElementById('gasChart');
+    const tpsChart = document.getElementById('tpsChart');
+    const intervalChart = document.getElementById('intervalChart');
+    const syntheticChart = document.getElementById('syntheticChart');
+
+    // Initialize
+    function init() {
+      setupEventListeners();
+      resizeCanvases();
+      window.addEventListener('resize', resizeCanvases);
+    }
+
+    function setupEventListeners() {
+      loadBtn.addEventListener('click', loadData);
+      dataSource.addEventListener('change', () => {
+        if (dataSource.value === 'file') {
+          fileInput.click();
+        }
+      });
+      fileInput.addEventListener('change', handleFileSelect);
+
+      document.getElementById('playPauseBtn').addEventListener('click', togglePlayback);
+      document.getElementById('stepBackBtn').addEventListener('click', () => stepTime(-10));
+      document.getElementById('stepFwdBtn').addEventListener('click', () => stepTime(10));
+
+      document.querySelectorAll('.speed-btn').forEach(btn => {
+        btn.addEventListener('click', () => setPlaybackSpeed(parseFloat(btn.dataset.speed)));
+      });
+
+      timelineCanvas.addEventListener('click', handleTimelineClick);
+    }
+
+    function resizeCanvases() {
+      [timelineCanvas, gasChart, tpsChart, intervalChart, syntheticChart].forEach(canvas => {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+      });
+      if (reportData) {
+        renderTimeline();
+        renderCharts();
+      }
+    }
+
+    async function loadData() {
+      if (dataSource.value === 'file') {
+        fileInput.click();
+        return;
+      }
+
+      // Fetch live data from WebSocket
+      statusText.textContent = 'Connecting to MegaETH Dashboard...';
+      initialStatus.className = 'status loading';
+      initialStatus.textContent = 'Fetching historical data';
+
+      try {
+        const ws = new WebSocket('wss://mainnet-dashboard.megaeth.com/metrics');
+
+        ws.onopen = () => {
+          statusText.textContent = 'Connected, waiting for data...';
+        };
+
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.historical_tps_7d || data.data?.historical_tps_7d) {
+            const histData = data.data || data;
+            ws.close();
+
+            // Convert to report format
+            reportData = {
+              generatedAt: new Date().toISOString(),
+              rawHistoricalData: {
+                gas7d: histData.historical_gas_per_second_7d,
+                tps7d: histData.historical_tps_7d,
+                interval7d: histData.historical_mini_block_interval_7d
+              },
+              gasSpikes: findGasSpikes(histData.historical_gas_per_second_7d),
+              tpsDrops: [],
+              blockTimeSpikes: []
+            };
+
+            onDataLoaded();
+          }
+        };
+
+        ws.onerror = (err) => {
+          statusText.textContent = 'Connection failed. Try loading from file.';
+          initialStatus.className = 'status';
+          initialStatus.textContent = 'Failed to connect. Use "Load from File" option.';
+        };
+
+        // Timeout
+        setTimeout(() => {
+          if (ws.readyState !== WebSocket.CLOSED) {
+            ws.close();
+            statusText.textContent = 'Timeout. Try loading from file.';
+          }
+        }, 15000);
+
+      } catch (err) {
+        statusText.textContent = 'Error: ' + err.message;
+      }
+    }
+
+    function findGasSpikes(gasData) {
+      if (!gasData) return [];
+      return gasData
+        .filter(p => p.value / 1e6 > 500)
+        .map(p => ({
+          timestamp: p.timestamp * 1000,
+          isoTime: new Date(p.timestamp * 1000).toISOString(),
+          value: p.value / 1e6,
+          severity: p.value / 1e6 > 800 ? 'critical' : 'warning',
+          message: `Gas: ${(p.value / 1e6).toFixed(1)} MGas/s`
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 50);
+    }
+
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          reportData = JSON.parse(e.target.result);
+          onDataLoaded();
+        } catch (err) {
+          statusText.textContent = 'Error parsing JSON: ' + err.message;
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function onDataLoaded() {
+      statusText.textContent = 'Data loaded!';
+      initialStatus.style.display = 'none';
+      timelineContainer.style.display = 'block';
+      anomalyList.style.display = 'block';
+      chartsGrid.style.display = 'grid';
+      replayControlsPanel.style.display = 'flex';
+
+      // Populate anomaly list
+      const anomalyItems = document.getElementById('anomalyItems');
+      const allAnomalies = [
+        ...(reportData.gasSpikes || []).map(a => ({ ...a, type: 'gas' })),
+        ...(reportData.tpsDrops || []).map(a => ({ ...a, type: 'tps' })),
+        ...(reportData.blockTimeSpikes || []).map(a => ({ ...a, type: 'blockTime' }))
+      ].sort((a, b) => b.value - a.value).slice(0, 20);
+
+      anomalyItems.innerHTML = allAnomalies.map((a, i) => `
+        <div class="anomaly-item" data-index="${i}" data-timestamp="${a.timestamp}">
+          <span class="anomaly-icon">${a.type === 'gas' ? '🔥' : a.type === 'tps' ? '📉' : '⏱️'}</span>
+          <div class="anomaly-info">
+            <div class="anomaly-time">${new Date(a.timestamp).toLocaleString()}</div>
+            <div class="anomaly-message">${a.message}</div>
+          </div>
+          <span class="anomaly-severity ${a.severity}">${a.severity}</span>
+        </div>
+      `).join('');
+
+      // Add click handlers
+      anomalyItems.querySelectorAll('.anomaly-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const timestamp = parseInt(item.dataset.timestamp);
+          jumpToTimestamp(timestamp);
+          document.querySelectorAll('.anomaly-item').forEach(i => i.classList.remove('selected'));
+          item.classList.add('selected');
+        });
+      });
+
+      // Set timeline range
+      const data = reportData.rawHistoricalData;
+      if (data?.gas7d?.length > 0) {
+        const startTime = new Date(data.gas7d[0].timestamp * 1000);
+        const endTime = new Date(data.gas7d[data.gas7d.length - 1].timestamp * 1000);
+        document.getElementById('timelineRange').textContent =
+          `${startTime.toLocaleDateString()} - ${endTime.toLocaleDateString()}`;
+      }
+
+      // Initial render
+      currentTimeIndex = 0;
+      renderTimeline();
+      renderCharts();
+      updateCurrentValues();
+    }
+
+    function jumpToTimestamp(timestamp) {
+      const data = reportData.rawHistoricalData?.gas7d || [];
+      let closestIndex = 0;
+      let closestDiff = Infinity;
+
+      for (let i = 0; i < data.length; i++) {
+        const diff = Math.abs(data[i].timestamp * 1000 - timestamp);
+        if (diff < closestDiff) {
+          closestDiff = diff;
+          closestIndex = i;
+        }
+      }
+
+      currentTimeIndex = closestIndex;
+      renderTimeline();
+      renderCharts();
+      updateCurrentValues();
+    }
+
+    function togglePlayback() {
+      isPlaying = !isPlaying;
+      document.getElementById('playPauseBtn').textContent = isPlaying ? '⏸️ Pause' : '▶️ Play';
+
+      if (isPlaying) {
+        playbackInterval = setInterval(() => {
+          const data = reportData.rawHistoricalData?.gas7d || [];
+          if (currentTimeIndex < data.length - 1) {
+            currentTimeIndex++;
+            renderTimeline();
+            renderCharts();
+            updateCurrentValues();
+          } else {
+            togglePlayback(); // Stop at end
+          }
+        }, 100 / playbackSpeed);
+      } else {
+        clearInterval(playbackInterval);
+      }
+    }
+
+    function stepTime(seconds) {
+      const data = reportData.rawHistoricalData?.gas7d || [];
+      // Data points are ~600s apart (10min), so we step by index
+      const steps = Math.round(seconds / 600);
+      currentTimeIndex = Math.max(0, Math.min(data.length - 1, currentTimeIndex + steps));
+      renderTimeline();
+      renderCharts();
+      updateCurrentValues();
+    }
+
+    function setPlaybackSpeed(speed) {
+      playbackSpeed = speed;
+      document.querySelectorAll('.speed-btn').forEach(btn => {
+        btn.classList.toggle('active', parseFloat(btn.dataset.speed) === speed);
+      });
+      if (isPlaying) {
+        clearInterval(playbackInterval);
+        togglePlayback();
+        togglePlayback();
+      }
+    }
+
+    function handleTimelineClick(e) {
+      const rect = timelineCanvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width;
+      const data = reportData.rawHistoricalData?.gas7d || [];
+      currentTimeIndex = Math.floor(x * data.length);
+      renderTimeline();
+      renderCharts();
+      updateCurrentValues();
+    }
+
+    function updateCurrentValues() {
+      const data = reportData.rawHistoricalData;
+      if (!data) return;
+
+      const gas = data.gas7d?.[currentTimeIndex];
+      const tps = data.tps7d?.[currentTimeIndex];
+      const interval = data.interval7d?.[currentTimeIndex];
+
+      if (gas) {
+        document.getElementById('gasValue').innerHTML =
+          `${(gas.value / 1e6).toFixed(1)}<span class="chart-value-unit"> MGas/s</span>`;
+        document.getElementById('replayTime').textContent =
+          new Date(gas.timestamp * 1000).toLocaleString();
+      }
+      if (tps) {
+        document.getElementById('tpsValue').innerHTML =
+          `${(tps.value / 1000).toFixed(1)}<span class="chart-value-unit"> K</span>`;
+      }
+      if (interval) {
+        document.getElementById('intervalValue').innerHTML =
+          `${interval.value.toFixed(1)}<span class="chart-value-unit"> ms</span>`;
+      }
+
+      // Estimate synthetic % (high gas = high synthetic)
+      const synPct = gas ? Math.min(99.9, (gas.value / 1e6) / 20).toFixed(1) : '--';
+      document.getElementById('syntheticValue').innerHTML =
+        `${synPct}<span class="chart-value-unit"> %</span>`;
+    }
+
+    function renderTimeline() {
+      const ctx = timelineCanvas.getContext('2d');
+      const width = timelineCanvas.width;
+      const height = timelineCanvas.height;
+      const dpr = window.devicePixelRatio;
+
+      ctx.clearRect(0, 0, width, height);
+
+      const data = reportData.rawHistoricalData?.gas7d || [];
+      if (data.length === 0) return;
+
+      // Find min/max
+      let maxGas = 0;
+      for (const p of data) {
+        if (p.value / 1e6 > maxGas) maxGas = p.value / 1e6;
+      }
+
+      // Draw gas timeline
+      ctx.strokeStyle = '#00D9A5';
+      ctx.lineWidth = 2 * dpr;
+      ctx.beginPath();
+
+      for (let i = 0; i < data.length; i++) {
+        const x = (i / data.length) * width;
+        const y = height - (data[i].value / 1e6 / maxGas) * height * 0.8;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Draw anomaly markers
+      const anomalies = reportData.gasSpikes || [];
+      ctx.fillStyle = '#ff3b30';
+      for (const a of anomalies.slice(0, 10)) {
+        const idx = data.findIndex(d => d.timestamp * 1000 >= a.timestamp);
+        if (idx >= 0) {
+          const x = (idx / data.length) * width;
+          ctx.beginPath();
+          ctx.arc(x, 10 * dpr, 4 * dpr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Draw current position
+      const currentX = (currentTimeIndex / data.length) * width;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(currentX, 0);
+      ctx.lineTo(currentX, height);
+      ctx.stroke();
+    }
+
+    function renderCharts() {
+      const data = reportData.rawHistoricalData;
+      if (!data) return;
+
+      // Get window around current position (50 points before and after)
+      const windowSize = 50;
+      const startIdx = Math.max(0, currentTimeIndex - windowSize);
+      const endIdx = Math.min((data.gas7d?.length || 0), currentTimeIndex + windowSize);
+
+      // Render gas chart
+      renderLineChart(gasChart, data.gas7d?.slice(startIdx, endIdx), v => v / 1e6, '#ff6b6b', currentTimeIndex - startIdx);
+
+      // Render TPS chart
+      renderLineChart(tpsChart, data.tps7d?.slice(startIdx, endIdx), v => v / 1000, '#00D9A5', currentTimeIndex - startIdx);
+
+      // Render interval chart
+      renderLineChart(intervalChart, data.interval7d?.slice(startIdx, endIdx), v => v, '#A29BFE', currentTimeIndex - startIdx);
+
+      // Render synthetic estimate chart
+      renderLineChart(syntheticChart, data.gas7d?.slice(startIdx, endIdx), v => Math.min(99.9, (v / 1e6) / 20), '#ffaa00', currentTimeIndex - startIdx);
+    }
+
+    function renderLineChart(canvas, data, transform, color, highlightIdx) {
+      if (!data || data.length === 0) return;
+
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+      const dpr = window.devicePixelRatio;
+      const padding = 20 * dpr;
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Find min/max
+      let minVal = Infinity, maxVal = 0;
+      for (const p of data) {
+        const v = transform(p.value);
+        if (v < minVal) minVal = v;
+        if (v > maxVal) maxVal = v;
+      }
+      const range = maxVal - minVal || 1;
+
+      // Draw grid
+      ctx.strokeStyle = '#2A2A3A';
+      ctx.lineWidth = 1 * dpr;
+      for (let i = 0; i <= 4; i++) {
+        const y = padding + (i / 4) * (height - 2 * padding);
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(width - padding, y);
+        ctx.stroke();
+      }
+
+      // Draw line
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2 * dpr;
+      ctx.beginPath();
+
+      for (let i = 0; i < data.length; i++) {
+        const x = padding + (i / (data.length - 1)) * (width - 2 * padding);
+        const v = transform(data[i].value);
+        const y = height - padding - ((v - minVal) / range) * (height - 2 * padding);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Draw current position marker
+      if (highlightIdx >= 0 && highlightIdx < data.length) {
+        const x = padding + (highlightIdx / (data.length - 1)) * (width - 2 * padding);
+        const v = transform(data[highlightIdx].value);
+        const y = height - padding - ((v - minVal) / range) * (height - 2 * padding);
+
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(x, y, 6 * dpr, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 4 * dpr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Start
+    init();
+  </script>
+</body>
+</html>

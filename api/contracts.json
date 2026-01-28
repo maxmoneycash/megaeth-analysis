@@ -1,0 +1,107 @@
+{
+  "contracts": {
+    "0x6342000000000000000000000000000000000001": {
+      "name": "Oracle",
+      "symbol": "ORA",
+      "category": "infrastructure",
+      "logo": "⚡",
+      "description": "MegaETH oracle system contract"
+    },
+    "0x6342000000000000000000000000000000000002": {
+      "name": "Timestamp Oracle",
+      "symbol": "TSO",
+      "category": "infrastructure",
+      "logo": "⏰",
+      "description": "High precision timestamp oracle"
+    },
+    "0x4200000000000000000000000000000000000015": {
+      "name": "L1 Block",
+      "symbol": "L1B",
+      "category": "infrastructure",
+      "logo": "🔗",
+      "description": "L1 block information"
+    },
+    "0x4200000000000000000000000000000000000007": {
+      "name": "L2 Cross Domain Messenger",
+      "symbol": "CDM",
+      "category": "bridge",
+      "logo": "📬",
+      "description": "Cross-domain messaging"
+    },
+    "0x4200000000000000000000000000000000000010": {
+      "name": "L2 Standard Bridge",
+      "symbol": "BRG",
+      "category": "bridge",
+      "logo": "🌉",
+      "description": "Standard token bridge"
+    },
+    "0x4200000000000000000000000000000000000006": {
+      "name": "WETH",
+      "symbol": "WETH",
+      "category": "defi",
+      "logo": "💎",
+      "description": "Wrapped Ether"
+    },
+    "0x4200000000000000000000000000000000000011": {
+      "name": "Sequencer Fee Vault",
+      "symbol": "SFV",
+      "category": "infrastructure",
+      "logo": "🏦",
+      "description": "Sequencer fee collector"
+    },
+    "0x4200000000000000000000000000000000000019": {
+      "name": "Base Fee Vault",
+      "symbol": "BFV",
+      "category": "infrastructure",
+      "logo": "🏦",
+      "description": "Base fee collector"
+    },
+    "0x420000000000000000000000000000000000001a": {
+      "name": "L1 Fee Vault",
+      "symbol": "L1V",
+      "category": "infrastructure",
+      "logo": "🏦",
+      "description": "L1 fee collector"
+    },
+    "0x4200000000000000000000000000000000000012": {
+      "name": "ERC20 Factory",
+      "symbol": "FAC",
+      "category": "defi",
+      "logo": "🏭",
+      "description": "Mintable ERC20 factory"
+    },
+    "0x4200000000000000000000000000000000000017": {
+      "name": "L2 to L1 Message Passer",
+      "symbol": "MSG",
+      "category": "bridge",
+      "logo": "📤",
+      "description": "L2 to L1 messaging"
+    },
+    "0x897a33a0af45b3ba097bd6045187d622252e6acd": {
+      "name": "MegaETH Testnet Contract",
+      "symbol": "MTC",
+      "category": "dex",
+      "logo": "🔷",
+      "description": "Active testnet contract"
+    },
+    "0x42e8acba221e7770cfe9b9d8565d82eeaf0e64c5": {
+      "name": "User Contract A",
+      "symbol": "UCA",
+      "category": "other",
+      "logo": "📄",
+      "description": "User deployed contract"
+    },
+    "0x57677bdc4f24d5c08ddce87e06670c26a00cac0b": {
+      "name": "User Contract B",
+      "symbol": "UCB",
+      "category": "other",
+      "logo": "📄",
+      "description": "User deployed contract"
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastUpdated": "2026-01-20",
+    "source": "Manual curation - MegaETH Frontier"
+  }
+}

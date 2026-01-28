@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MegaETH Block Production</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #000000;
+      color: #00ff00;
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+    }
+
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .time-controls {
+      position: fixed;
+      top: 15px;
+      right: 20px;
+      display: flex;
+      gap: 6px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #00ff0040;
+    }
+
+    .time-btn {
+      background: #0a0a0f;
+      border: 1px solid #00ff00;
+      color: #00ff00;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      transition: all 0.2s;
+    }
+
+    .time-btn:hover {
+      background: #00ff00;
+      color: #000000;
+    }
+
+    .time-btn.active {
+      background: #00ff00;
+      color: #000000;
+      font-weight: bold;
+    }
+
+    .status {
+      position: fixed;
+      top: 12px;
+      left: 20px;
+      font-size: 13px;
+      color: #00ff00;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 6px 12px;
+      border-radius: 4px;
+      border: 1px solid #00ff0030;
+    }
+  </style>
+</head>
+<body>
+  <div class="time-controls">
+    <button class="time-btn" data-window="1m">1 min</button>
+    <button class="time-btn" data-window="5m">5 min</button>
+    <button class="time-btn active" data-window="15m">15 min</button>
+    <button class="time-btn" data-window="1h">1 hour</button>
+    <button class="time-btn" data-window="6h">6 hours</button>
+    <button class="time-btn" data-window="24h">24 hours</button>
+    <button class="time-btn" data-window="7d">7 days</button>
+  </div>
+
+  <div class="status">
+    <div>MegaETH Block Production</div>
+    <div id="connection-status">Connecting...</div>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <script>
+    // Configuration
+    const API_URL = 'http://localhost:3001';  // Your Rust API backend
+    const WS_URL = 'ws://localhost:3001/ws/blocks';  // WebSocket for live updates
+    const CHART_WIDTH = 800;
+    const CHART_HEIGHT = 260;  // Height per chart (2 charts stacked)
+    const CHART_GAP = 50;       // Gap between charts
+    const MARGIN = { top: 55, right: 140, bottom: 40, left: 80 };
+
+    // State
+    let currentWindow = '15m';
+    let ws = null;
+    let subscriptionId = null;
+    let lastEvmBlock = 0;
+
+    // MegaETH Frontier launch date (Dec 18, 2025 00:00 UTC)
+    const FRONTIER_LAUNCH = new Date('2025-12-18T00:00:00Z').getTime();
+
+    // Window configuration with user-specified time spans
+    // Each bucket represents the TOTAL blocks in that time period
+    const WINDOW_CONFIG = {
+      '1m':  { 
+        duration: 2 * 60 * 60 * 1000,           // 2 hours (14:40 to 16:40)
+        bucketInterval: 1 * 60 * 1000,          // 1 minute buckets
+      },
+      '5m':  { 
+        duration: 9 * 60 * 60 * 1000,           // 9 hours (07:40 to 16:40)
+        bucketInterval: 5 * 60 * 1000,          // 5 minute buckets
+      },
+      '15m': { 
+        duration: 27 * 60 * 60 * 1000,          // ~27 hours (30 Dec 14:15 to 31 Dec 16:45)
+        bucketInterval: 15 * 60 * 1000,         // 15 minute buckets
+      },
+      '1h':  { 
+        duration: 4.5 * 24 * 60 * 60 * 1000,    // ~4.5 days (27 Dec to 31 Dec)
+        bucketInterval: 1 * 60 * 60 * 1000,     // 1 hour buckets
+      },
+      '6h':  { 
+        duration: null,                          // Dynamic: from Frontier launch to now
+        bucketInterval: 6 * 60 * 60 * 1000,     // 6 hour buckets
+        fromLaunch: true,
+      },
+      '24h': { 
+        duration: null,                          // Dynamic: from Frontier launch to now  
+        bucketInterval: 24 * 60 * 60 * 1000,    // 24 hour buckets
+        fromLaunch: true,
+      },
+      '7d':  { 
+        duration: null,                          // Dynamic: from Frontier launch to now
+        bucketInterval: 7 * 24 * 60 * 60 * 1000, // 7 day buckets
+        fromLaunch: true,
+      },
+    };
+
+    // Helper to get actual duration (handles dynamic windows)
+    function getWindowDuration(windowKey) {
+      const config = WINDOW_CONFIG[windowKey];
+      if (config.fromLaunch) {
+        return Date.now() - FRONTIER_LAUNCH;
+      }
+      return config.duration;
+    }
+
+    // Helper to get start time for a window
+    function getWindowStart(windowKey) {
+      const config = WINDOW_CONFIG[windowKey];
+      if (config.fromLaunch) {
+        return FRONTIER_LAUNCH;
+      }
+      return Date.now() - config.duration;
+    }
+
+    // Bucket-based data storage - separate Map for each window size
+    // Key = window name, Value = Map of bucketKey -> { evmBlocks, miniBlocks, isComplete }
+    let buckets = {
+      '1m': new Map(),
+      '5m': new Map(),
+      '15m': new Map(),
+      '1h': new Map(),
+      '6h': new Map(),
+      '24h': new Map(),
+      '7d': new Map(),
+    };
+    let currentBucketKeys = {}; // Track current bucket per window
+
+    // Hover state for crosshair
+    let mouseInChart = false;
+    let hoverX = 0;
+    let hoverY = 0;
+    let hoverData = null; // { timestamp, evmBlocks, miniBlocks }
+
+    // p5.js sketch
+    const sketch = (p) => {
+      p.setup = () => {
+        const totalHeight = MARGIN.top + (CHART_HEIGHT * 2) + CHART_GAP + MARGIN.bottom;
+        p.createCanvas(CHART_WIDTH + MARGIN.left + MARGIN.right, totalHeight);
+        p.frameRate(30); // Higher FPS for smooth hover
+      };
+
+      p.draw = () => {
+        p.background(0);
+
+        // Draw title
+        p.fill(0, 255, 0);
+        p.textAlign(p.CENTER);
+        p.textSize(16);
+        p.text('MEGAETH DUAL EVM/MINI BLOCK PRODUCTION', p.width / 2, 30);
+
+        // Chart positions
+        const chartX = MARGIN.left;
+        const miniChartY = MARGIN.top;
+        const evmChartY = MARGIN.top + CHART_HEIGHT + CHART_GAP;
+
+        // Draw Mini blocks chart (top)
+        drawChartTitle(p, chartX, miniChartY - 20, 'MINI BLOCKS', [0, 255, 255]);
+        drawGrid(p, chartX, miniChartY);
+        drawMiniChart(p, chartX, miniChartY);
+        drawAxes(p, chartX, miniChartY, 'miniBlocks');
+
+        // Draw EVM blocks chart (bottom)
+        drawChartTitle(p, chartX, evmChartY - 20, 'EVM BLOCKS', [0, 255, 0]);
+        drawGrid(p, chartX, evmChartY);
+        drawEvmChart(p, chartX, evmChartY);
+        drawAxes(p, chartX, evmChartY, 'evmBlocks');
+
+        // Draw synced crosshair across both charts
+        drawSyncedCrosshair(p, chartX, miniChartY, evmChartY);
+
+        // Draw legend
+        drawLegend(p, chartX + CHART_WIDTH + 20, miniChartY);
+
+        // Update hover state
+        updateHoverState(p, chartX, miniChartY, evmChartY);
+      };
+    };
+
+    function drawChartTitle(p, x, y, title, color) {
+      p.fill(color[0], color[1], color[2]);
+      p.textAlign(p.LEFT, p.BOTTOM);
+      p.textSize(12);
+      p.text(title, x, y);
+    }
+
+    function drawGrid(p, x, y) {
+      // Chart border
+      p.stroke(60, 60, 60);
+      p.strokeWeight(1);
+      p.noFill();
+      p.rect(x, y, CHART_WIDTH, CHART_HEIGHT);
+
+      // Horizontal grid lines (dotted, subtle)
+      p.stroke(35, 35, 40);
+      p.strokeWeight(1);
+      p.drawingContext.setLineDash([2, 3]);
+      for (let i = 1; i < 5; i++) {
+        const yPos = y + (CHART_HEIGHT / 5) * i;
+        p.line(x, yPos, x + CHART_WIDTH, yPos);
+      }
+
+      // Vertical grid lines - based on data points
+      const windowData = getWindowData();
+      if (windowData.length > 1) {
+        const numLines = Math.min(windowData.length, 8);
+        for (let i = 1; i < numLines; i++) {
+          const xPos = x + (CHART_WIDTH / numLines) * i;
+        p.line(xPos, y, xPos, y + CHART_HEIGHT);
+      }
+    }
+
+      p.drawingContext.setLineDash([]);
+    }
+
+    // Flag to log per-bucket data once
+    let loggedBucketData = false;
+
+    function drawEvmChart(p, x, y) {
+      const windowData = getWindowData();
+      if (!windowData || windowData.length === 0) {
+        p.fill(80, 80, 80);
+        p.textAlign(p.CENTER, p.CENTER);
+        p.textSize(12);
+        p.text('Waiting for data...', x + CHART_WIDTH / 2, y + CHART_HEIGHT / 2);
+        return;
+      }
+
+      // #region agent log
+      if (!loggedBucketData && windowData.length > 5) {
+        loggedBucketData = true;
+        // Log first 5 and last 5 bucket values
+        const first5 = windowData.slice(0, 5).map(d => ({ts: new Date(d.timestamp).toISOString().slice(11,19), evm: d.evmBlocks, mini: d.miniBlocks}));
+        const last5 = windowData.slice(-5).map(d => ({ts: new Date(d.timestamp).toISOString().slice(11,19), evm: d.evmBlocks, mini: d.miniBlocks}));
+        fetch('http://127.0.0.1:7242/ingest/b765a360-4c8d-4e09-a735-de495bb101d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ascii-chart.html:drawEvmChart',message:'Per-bucket values',data:{window:currentWindow,first5,last5,totalBuckets:windowData.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
+      }
+      // #endregion
+
+      // Find max value for EVM blocks only
+      let maxValue = Math.max(...windowData.map(d => d.evmBlocks), 1);
+      maxValue = getNiceMax(maxValue);
+
+      // Draw EVM blocks line
+      drawASCIILine(p, x, y, windowData, 'evmBlocks', maxValue, [0, 255, 0], '▪');
+    }
+
+    function drawMiniChart(p, x, y) {
+      const windowData = getWindowData();
+      if (!windowData || windowData.length === 0) {
+        p.fill(80, 80, 80);
+        p.textAlign(p.CENTER, p.CENTER);
+        p.textSize(12);
+        p.text('Waiting for data...', x + CHART_WIDTH / 2, y + CHART_HEIGHT / 2);
+        return;
+      }
+
+      // Find max value for mini blocks only
+      let maxValue = Math.max(...windowData.map(d => d.miniBlocks), 1);
+      maxValue = getNiceMax(maxValue);
+
+      // Draw mini blocks line
+      drawASCIILine(p, x, y, windowData, 'miniBlocks', maxValue, [0, 255, 255], '·');
+    }
+
+    function drawASCIILine(p, x, y, data, key, maxValue, color, char) {
+      if (data.length < 2) return;
+
+      const scaleX = CHART_WIDTH / (data.length - 1);
+      const scaleY = CHART_HEIGHT / maxValue;
+
+      // Draw connecting lines first
+      p.stroke(color[0], color[1], color[2], 150);
+      p.strokeWeight(2);
+      p.noFill();
+      p.beginShape();
+      
+      for (let i = 0; i < data.length; i++) {
+        const point = data[i];
+        const value = point[key];
+        const px = x + i * scaleX;
+        const py = y + CHART_HEIGHT - (value * scaleY);
+        p.vertex(px, py);
+      }
+      
+      p.endShape();
+
+      // Draw ASCII characters on top
+      p.textAlign(p.CENTER, p.CENTER);
+      p.textSize(12);
+      p.noStroke();
+
+      for (let i = 0; i < data.length; i++) {
+        const point = data[i];
+        const value = point[key];
+        const px = x + i * scaleX;
+        const py = y + CHART_HEIGHT - (value * scaleY);
+
+        // Dim incomplete buckets (current bucket still collecting data)
+        if (!point.isComplete) {
+          p.fill(color[0] * 0.5, color[1] * 0.5, color[2] * 0.5);
+        } else {
+          p.fill(color[0], color[1], color[2]);
+        }
+
+        // Draw ASCII character
+        p.text(char, px, py);
+      }
+    }
+
+    function drawAxes(p, x, y, dataKey) {
+      p.fill(100, 100, 100);
+      p.textSize(10);
+
+      const windowData = getWindowData();
+      
+      // Calculate max value for Y-axis based on data key
+      let maxValue = 10; // Minimum sensible value
+      if (windowData.length > 0) {
+        maxValue = Math.max(...windowData.map(d => d[dataKey]), 1);
+        maxValue = getNiceMax(maxValue);
+      }
+
+      // Y-axis labels (left side, like financial charts)
+      p.textAlign(p.RIGHT, p.CENTER);
+        for (let i = 0; i <= 5; i++) {
+        const value = (maxValue / 5) * (5 - i);
+          const yPos = y + (CHART_HEIGHT / 5) * i;
+        // Horizontal tick line
+        p.stroke(50, 50, 50);
+        p.strokeWeight(1);
+        p.line(x - 5, yPos, x, yPos);
+        p.noStroke();
+        // Value label
+        p.fill(100, 100, 100);
+        p.text(formatNumber(value), x - 10, yPos);
+      }
+
+      // Y-axis title
+      p.push();
+      p.translate(x - 50, y + CHART_HEIGHT / 2);
+      p.rotate(-p.HALF_PI);
+      p.textAlign(p.CENTER, p.CENTER);
+      p.fill(100, 100, 100);
+      p.text('Blocks', 0, 0);
+      p.pop();
+
+      // X-axis labels (time) - only show on bottom chart
+      if (dataKey === 'evmBlocks') {
+      p.textAlign(p.CENTER, p.TOP);
+      const timeLabels = getTimeLabels();
+        const numLabels = timeLabels.length;
+        
+        // Space labels evenly across the chart width
+        for (let i = 0; i < numLabels; i++) {
+          const xPos = x + (CHART_WIDTH / (numLabels - 1)) * i;
+          // Vertical tick line
+          p.stroke(50, 50, 50);
+          p.strokeWeight(1);
+          p.line(xPos, y + CHART_HEIGHT, xPos, y + CHART_HEIGHT + 5);
+          p.noStroke();
+          // Time label
+          p.fill(100, 100, 100);
+          p.textSize(9);
+        p.text(timeLabels[i], xPos, y + CHART_HEIGHT + 10);
+        }
+      }
+    }
+
+    // Format numbers nicely (1000 -> 1K, 1000000 -> 1M)
+    function formatNumber(num) {
+      if (num >= 1000000) {
+        return (num / 1000000).toFixed(1) + 'M';
+      } else if (num >= 1000) {
+        return (num / 1000).toFixed(1) + 'K';
+      } else if (num >= 100) {
+        return Math.round(num).toString();
+      } else if (num >= 10) {
+        return num.toFixed(1);
+      } else {
+        return num.toFixed(2);
+      }
+    }
+
+    // Get a nice round number for the Y-axis max
+    function getNiceMax(value) {
+      if (value <= 0) return 10;
+      const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+      const normalized = value / magnitude;
+      let niceNorm;
+      if (normalized <= 1) niceNorm = 1;
+      else if (normalized <= 2) niceNorm = 2;
+      else if (normalized <= 5) niceNorm = 5;
+      else niceNorm = 10;
+      return niceNorm * magnitude;
+    }
+
+    // Track which chart is being hovered
+    let hoverChart = null; // 'evm' or 'mini'
+
+    // Update hover state based on mouse position (checks both charts)
+    function updateHoverState(p, chartX, evmChartY, miniChartY) {
+      const mx = p.mouseX;
+      const my = p.mouseY;
+
+      // Check if hovering over Mini chart (now on top)
+      const inMiniChart = mx >= chartX && mx <= chartX + CHART_WIDTH &&
+                          my >= miniChartY && my <= miniChartY + CHART_HEIGHT;
+
+      // Check if hovering over EVM chart (now on bottom)
+      const inEvmChart = mx >= chartX && mx <= chartX + CHART_WIDTH &&
+                         my >= evmChartY && my <= evmChartY + CHART_HEIGHT;
+
+      mouseInChart = inEvmChart || inMiniChart;
+
+      if (mouseInChart) {
+        hoverX = mx;
+        hoverY = my;
+        hoverChart = inMiniChart ? 'mini' : 'evm';
+
+        // Find nearest data point
+        const windowData = getWindowData();
+        if (windowData.length > 1) {
+          const relX = mx - chartX;
+          const scaleX = CHART_WIDTH / (windowData.length - 1);
+          const dataIndex = Math.round(relX / scaleX);
+          const clampedIndex = Math.max(0, Math.min(dataIndex, windowData.length - 1));
+          hoverData = windowData[clampedIndex];
+        }
+      } else {
+        hoverData = null;
+        hoverChart = null;
+      }
+    }
+
+    // Draw synced crosshair across both charts
+    function drawSyncedCrosshair(p, chartX, miniChartY, evmChartY) {
+      if (!mouseInChart || !hoverData) return;
+
+      const windowData = getWindowData();
+      if (windowData.length < 2) return;
+
+      // Find X position of the data point
+      const dataIndex = windowData.findIndex(d => d.timestamp === hoverData.timestamp);
+      if (dataIndex === -1) return;
+
+      const scaleX = CHART_WIDTH / (windowData.length - 1);
+      const pointX = chartX + dataIndex * scaleX;
+
+      // Calculate scales for each chart
+      const evmMaxValue = getNiceMax(Math.max(...windowData.map(d => d.evmBlocks), 1));
+      const miniMaxValue = getNiceMax(Math.max(...windowData.map(d => d.miniBlocks), 1));
+      const evmScaleY = CHART_HEIGHT / evmMaxValue;
+      const miniScaleY = CHART_HEIGHT / miniMaxValue;
+
+      // Calculate Y positions for data points
+      const evmY = evmChartY + CHART_HEIGHT - (hoverData.evmBlocks * evmScaleY);
+      const miniY = miniChartY + CHART_HEIGHT - (hoverData.miniBlocks * miniScaleY);
+
+      // Draw crosshair lines (dotted)
+      p.stroke(100, 100, 100);
+      p.strokeWeight(1);
+      p.drawingContext.setLineDash([4, 4]);
+
+      // Vertical lines through BOTH charts
+      p.line(pointX, evmChartY, pointX, evmChartY + CHART_HEIGHT);
+      p.line(pointX, miniChartY, pointX, miniChartY + CHART_HEIGHT);
+
+      // Horizontal lines through each data point
+      p.line(chartX, evmY, chartX + CHART_WIDTH, evmY);
+      p.line(chartX, miniY, chartX + CHART_WIDTH, miniY);
+
+      p.drawingContext.setLineDash([]);
+
+      // Highlight point on EVM chart
+      p.fill(0, 255, 0);
+      p.noStroke();
+      p.ellipse(pointX, evmY, 10, 10);
+
+      // Highlight point on Mini chart
+      p.fill(0, 255, 255);
+      p.ellipse(pointX, miniY, 10, 10);
+
+      // Tooltip positioned on the chart being hovered
+      const tooltipChartY = hoverChart === 'evm' ? evmChartY : miniChartY;
+      const tooltipWidth = 140;
+      const tooltipHeight = 70;
+      const tooltipX = pointX + 15;
+      const tooltipY = hoverY - tooltipHeight / 2;
+
+      // Adjust if tooltip would go off screen
+      const adjustedX = tooltipX + tooltipWidth > chartX + CHART_WIDTH 
+        ? pointX - tooltipWidth - 15 
+        : tooltipX;
+
+      // Background
+      p.fill(20, 20, 25, 230);
+      p.stroke(60, 60, 60);
+      p.strokeWeight(1);
+      p.rect(adjustedX, tooltipY, tooltipWidth, tooltipHeight, 4);
+
+      // Time
+      p.noStroke();
+      p.fill(150, 150, 150);
+      p.textAlign(p.LEFT, p.TOP);
+      p.textSize(9);
+      const hoverDate = new Date(hoverData.timestamp);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const hours = hoverDate.getHours().toString().padStart(2, '0');
+      const minutes = hoverDate.getMinutes().toString().padStart(2, '0');
+      const timeStr = `${months[hoverDate.getMonth()]} ${hoverDate.getDate()} ${hours}:${minutes}`;
+      p.text(timeStr, adjustedX + 10, tooltipY + 8);
+
+      // EVM blocks
+      p.fill(0, 255, 0);
+      p.text('EVM: ' + formatNumber(hoverData.evmBlocks), adjustedX + 10, tooltipY + 26);
+
+      // Mini blocks
+      p.fill(0, 255, 255);
+      p.text('Mini: ' + formatNumber(hoverData.miniBlocks), adjustedX + 10, tooltipY + 44);
+    }
+
+    function drawLegend(p, x, y) {
+      p.textAlign(p.LEFT, p.TOP);
+      p.textSize(10);
+
+      // Legend title
+      p.fill(100, 100, 100);
+      p.text('CHARTS', x, y);
+
+      // Mini blocks chart (top)
+      p.stroke(0, 255, 255);
+      p.strokeWeight(2);
+      p.line(x, y + 22, x + 20, y + 22);
+      p.noStroke();
+      p.fill(0, 255, 255);
+      p.text('Mini (top)', x + 28, y + 17);
+
+      // EVM blocks chart (bottom)
+      p.stroke(0, 255, 0);
+      p.strokeWeight(2);
+      p.line(x, y + 42, x + 20, y + 42);
+      p.noStroke();
+      p.fill(0, 255, 0);
+      p.text('EVM (bottom)', x + 28, y + 37);
+
+      // Bucket info
+      p.fill(60, 60, 60);
+      p.text('─────────────', x, y + 55);
+      
+      p.fill(100, 100, 100);
+      p.textSize(9);
+      const bucketDesc = getBucketDescription(currentWindow);
+      p.text('Each point =', x, y + 70);
+      p.fill(100, 100, 100);
+      p.text(bucketDesc, x, y + 83);
+
+      // Stats section
+      const windowData = getWindowData();
+      if (windowData.length > 0) {
+        // Calculate totals
+        const totalEvm = windowData.reduce((sum, d) => sum + d.evmBlocks, 0);
+        const totalMini = windowData.reduce((sum, d) => sum + d.miniBlocks, 0);
+        const latest = windowData[windowData.length - 1];
+
+        p.fill(60, 60, 60);
+        p.text('─────────────', x, y + 100);
+        
+        p.fill(100, 100, 100);
+        p.text('TOTAL', x, y + 115);
+        
+        p.fill(0, 255, 0);
+        p.text('EVM: ' + formatNumber(totalEvm), x, y + 130);
+        
+        p.fill(0, 255, 255);
+        p.text('Mini: ' + formatNumber(totalMini), x, y + 145);
+
+        p.fill(60, 60, 60);
+        p.text('─────────────', x, y + 162);
+
+        p.fill(100, 100, 100);
+        p.text('LATEST', x, y + 177);
+
+        p.fill(0, 255, 0);
+        p.text('EVM: ' + formatNumber(latest.evmBlocks), x, y + 192);
+
+        p.fill(0, 255, 255);
+        p.text('Mini: ' + formatNumber(latest.miniBlocks), x, y + 207);
+
+        // Status indicator
+        if (!latest.isComplete) {
+          p.fill(255, 200, 0);
+          p.text('● Live', x, y + 227);
+        }
+
+        // Data accuracy indicator
+        p.fill(60, 60, 60);
+        p.text('─────────────', x, y + 244);
+        p.fill(100, 100, 100);
+        p.textSize(8);
+        p.text('ACCURACY', x, y + 259);
+        p.fill(0, 255, 0);
+        p.text('EVM: 100%', x, y + 274);
+        
+        if (hasHistoricalData()) {
+          p.fill(255, 200, 0);
+          p.text('Mini: ~est (hist)', x, y + 287);
+          p.fill(0, 255, 255);
+          p.text('Mini: 100% (live)', x, y + 300);
+        } else {
+          p.fill(0, 255, 255);
+          p.text('Mini: 100%', x, y + 287);
+        }
+      }
+    }
+
+    // Get human-readable bucket description
+    function getBucketDescription(window) {
+      const descriptions = {
+        '1m': 'blocks in 1 minute',
+        '5m': 'blocks in 5 minutes',
+        '15m': 'blocks in 15 minutes',
+        '1h': 'blocks in 1 hour',
+        '6h': 'blocks in 6 hours',
+        '24h': 'blocks in 24 hours',
+        '7d': 'blocks in 7 days',
+      };
+      return descriptions[window] || 'blocks';
+    }
+
+    // Check if current window data has any historical (estimated) buckets
+    function hasHistoricalData() {
+      const windowBuckets = buckets[currentWindow];
+      for (const [key, bucket] of windowBuckets) {
+        if (bucket.isHistorical) return true;
+      }
+      return false;
+    }
+
+    // Flag to avoid logging too often
+    let lastWindowDataLog = 0;
+
+    function getWindowData() {
+      const now = Date.now();
+      const config = WINDOW_CONFIG[currentWindow];
+      const windowBuckets = buckets[currentWindow];
+
+      // Calculate start time and number of buckets
+      const startTime = getWindowStart(currentWindow);
+      const duration = getWindowDuration(currentWindow);
+      const numBuckets = Math.ceil(duration / config.bucketInterval);
+      
+      // Align start time to bucket boundary
+      const alignedStart = Math.floor(startTime / config.bucketInterval) * config.bucketInterval;
+
+      // #region agent log
+      if (now - lastWindowDataLog > 5000) {
+        lastWindowDataLog = now;
+        const sampleBucketKeys = Array.from(windowBuckets.keys()).slice(0, 3);
+        fetch('http://127.0.0.1:7242/ingest/b765a360-4c8d-4e09-a735-de495bb101d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ascii-chart.html:getWindowData',message:'Window query',data:{currentWindow,startTime,startTimeDate:new Date(startTime).toISOString(),alignedStart,alignedStartDate:new Date(alignedStart).toISOString(),duration,numBuckets,bucketsInMemory:windowBuckets.size,sampleBucketKeys},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C,D'})}).catch(()=>{});
+      }
+      // #endregion
+
+      // Collect bucket data within the time window
+      const data = [];
+      let foundCount = 0;
+      for (let i = 0; i < numBuckets; i++) {
+        const bucketKey = alignedStart + (config.bucketInterval * i);
+        // Skip future buckets
+        if (bucketKey > now) break;
+        
+        const bucket = windowBuckets.get(bucketKey);
+        if (bucket) foundCount++;
+
+        data.push({
+          timestamp: bucketKey,
+          evmBlocks: bucket ? bucket.evmBlocks : 0,
+          miniBlocks: bucket ? bucket.miniBlocks : 0,
+          isComplete: bucket ? bucket.isComplete : false,
+        });
+      }
+
+      // #region agent log
+      if (now - lastWindowDataLog < 100) {
+        fetch('http://127.0.0.1:7242/ingest/b765a360-4c8d-4e09-a735-de495bb101d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ascii-chart.html:getWindowData:result',message:'Window data result',data:{dataLength:data.length,foundCount,totalEvm:data.reduce((s,d)=>s+d.evmBlocks,0),totalMini:data.reduce((s,d)=>s+d.miniBlocks,0)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C,D'})}).catch(()=>{});
+        }
+      // #endregion
+
+      return data;
+    }
+
+    function getTimeLabels() {
+      const now = Date.now();
+      const config = WINDOW_CONFIG[currentWindow];
+      const startTime = getWindowStart(currentWindow);
+      const duration = getWindowDuration(currentWindow);
+      
+      // Determine number of labels (aim for 6-8 labels max for readability)
+      const numLabels = Math.min(8, Math.max(3, Math.ceil(duration / config.bucketInterval)));
+      const labelInterval = duration / (numLabels - 1);
+      
+      // Create labels from start to now
+      const labels = [];
+      for (let i = 0; i < numLabels; i++) {
+        const time = startTime + (labelInterval * i);
+        labels.push(formatTime(new Date(time), currentWindow));
+      }
+
+      return labels;
+    }
+
+    function formatTime(date, window) {
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const day = date.getDate();
+      const month = months[date.getMonth()];
+      const year = date.getFullYear();
+      
+      if (window === '1m') {
+        // Show HH:MM for 1min window (2 hour span)
+        return `${hours}:${minutes}`;
+      } else if (window === '5m') {
+        // Show HH:MM for 5min window (9 hour span)
+        return `${hours}:${minutes}`;
+      } else if (window === '15m') {
+        // Show "Dec 30 14:15" for 15min window (~27 hour span)
+        return `${month} ${day} ${hours}:${minutes}`;
+      } else if (window === '1h') {
+        // Show "Dec 27 06:30" for 1hour window (~4.5 day span)
+        return `${month} ${day} ${hours}:${minutes}`;
+      } else if (window === '6h') {
+        // Show "Dec 18" for 6hour window (from frontier launch)
+        return `${month} ${day}`;
+      } else if (window === '24h') {
+        // Show "Dec 18" for 24hour window (from frontier launch)
+        return `${month} ${day}`;
+      } else {
+        // Show "Dec 18 '25" for 7d window
+        return `${month} ${day} '${year.toString().slice(-2)}`;
+      }
+    }
+
+    // MegaETH WebSocket for live subscriptions
+    const MEGAETH_WS = 'wss://carrot.megaeth.com/ws';
+    let miniBlockSubId = null;
+    let newBlockSubId = null;
+    
+    // Track mini blocks per EVM block for accurate counting
+    let miniBlocksPerEvmBlock = new Map(); // blockNumber -> count
+    let currentEvmBlockNumber = 0;
+
+    // WebSocket connection to MegaETH directly for live data
+    function connectWebSocket() {
+      console.log('[BlockChart] Connecting to MegaETH WebSocket:', MEGAETH_WS);
+      document.getElementById('connection-status').textContent = 'Connecting to MegaETH...';
+
+      try {
+        ws = new WebSocket(MEGAETH_WS);
+
+        ws.onopen = () => {
+          console.log('[BlockChart] ✅ WebSocket connected to MegaETH');
+          document.getElementById('connection-status').textContent = 'Subscribing...';
+          
+          // Subscribe to mini blocks
+          ws.send(JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_subscribe',
+            params: ['miniBlocks'],
+            id: 1,
+          }));
+          
+          // Subscribe to new EVM blocks (newHeads)
+          ws.send(JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_subscribe',
+            params: ['newHeads'],
+            id: 2,
+          }));
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            // Handle subscription confirmations
+            if (data.id === 1 && data.result) {
+              miniBlockSubId = data.result;
+              console.log('[BlockChart] ✅ Subscribed to miniBlocks:', miniBlockSubId);
+            } else if (data.id === 2 && data.result) {
+              newBlockSubId = data.result;
+              console.log('[BlockChart] ✅ Subscribed to newHeads:', newBlockSubId);
+              document.getElementById('connection-status').textContent = 'Live ●';
+            }
+            
+            // Handle subscription data
+            if (data.method === 'eth_subscription' && data.params) {
+              const subId = data.params.subscription;
+              const result = data.params.result;
+              
+              if (subId === miniBlockSubId) {
+                processMiniBlock(result);
+              } else if (subId === newBlockSubId) {
+                processNewHead(result);
+              }
+            }
+          } catch (e) {
+            console.error('[BlockChart] ❌ Parse error:', e);
+          }
+        };
+
+        ws.onclose = (event) => {
+          console.log('[BlockChart] ❌ Disconnected from MegaETH');
+          document.getElementById('connection-status').textContent = 'Disconnected (retrying...)';
+          setTimeout(connectWebSocket, 2000);
+        };
+
+        ws.onerror = (error) => {
+          console.error('[BlockChart] ❌ WebSocket error:', error);
+          document.getElementById('connection-status').textContent = 'Error';
+        };
+      } catch (e) {
+        console.error('[BlockChart] ❌ Failed to connect:', e);
+        document.getElementById('connection-status').textContent = 'Failed';
+      }
+    }
+
+    // Counter for live mini block logs
+    let liveMiniBlockCount = 0;
+
+    // Process mini block from WebSocket subscription
+    function processMiniBlock(miniBlock) {
+      const blockNumber = miniBlock.block_number;
+      const timestamp = miniBlock.timestamp; // Already in milliseconds
+      const miniBlockIndex = miniBlock.index;
+      
+      // #region agent log
+      liveMiniBlockCount++;
+      if (liveMiniBlockCount <= 3 || liveMiniBlockCount % 500 === 0) {
+        fetch('http://127.0.0.1:7242/ingest/b765a360-4c8d-4e09-a735-de495bb101d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ascii-chart.html:processMiniBlock',message:'Live mini block',data:{blockNumber,timestamp,timestampDate:new Date(timestamp).toISOString(),miniBlockIndex,liveMiniBlockCount},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H'})}).catch(()=>{});
+      }
+      // #endregion
+      
+      // Track mini block count per EVM block
+      const currentCount = miniBlocksPerEvmBlock.get(blockNumber) || 0;
+      miniBlocksPerEvmBlock.set(blockNumber, Math.max(currentCount, miniBlockIndex + 1));
+      
+      // Add to ALL bucket sizes
+      Object.entries(WINDOW_CONFIG).forEach(([windowKey, config]) => {
+        const bucketKey = Math.floor(timestamp / config.bucketInterval) * config.bucketInterval;
+        const windowBuckets = buckets[windowKey];
+
+      // Check if we moved to a new bucket
+        if (currentBucketKeys[windowKey] && bucketKey !== currentBucketKeys[windowKey]) {
+          const prevBucket = windowBuckets.get(currentBucketKeys[windowKey]);
+        if (prevBucket) {
+          prevBucket.isComplete = true;
+        }
+      }
+
+        currentBucketKeys[windowKey] = bucketKey;
+
+      // Get or create bucket
+        if (!windowBuckets.has(bucketKey)) {
+          windowBuckets.set(bucketKey, {
+          evmBlocks: 0,
+          miniBlocks: 0,
+          isComplete: false,
+        });
+      }
+
+        const bucket = windowBuckets.get(bucketKey);
+
+        // Increment mini blocks (each mini block subscription = 1 mini block)
+        bucket.miniBlocks++;
+
+      // Clean up old buckets
+        if (windowBuckets.size > 1000) {
+          const oldestKey = Math.min(...windowBuckets.keys());
+          windowBuckets.delete(oldestKey);
+        }
+      });
+    }
+
+    // Process new EVM block head from WebSocket subscription
+    function processNewHead(block) {
+      const blockNumber = parseInt(block.number, 16);
+      const timestamp = parseInt(block.timestamp, 16) * 1000; // Convert to ms
+      
+      // Only count each block once
+      if (blockNumber <= lastEvmBlock) return;
+      lastEvmBlock = blockNumber;
+      currentEvmBlockNumber = blockNumber;
+
+      console.log('[BlockChart] New EVM block:', blockNumber);
+
+      // Add to ALL bucket sizes
+      Object.entries(WINDOW_CONFIG).forEach(([windowKey, config]) => {
+        const bucketKey = Math.floor(timestamp / config.bucketInterval) * config.bucketInterval;
+        const windowBuckets = buckets[windowKey];
+
+      // Check if we moved to a new bucket
+        if (currentBucketKeys[windowKey] && bucketKey !== currentBucketKeys[windowKey]) {
+          const prevBucket = windowBuckets.get(currentBucketKeys[windowKey]);
+        if (prevBucket) {
+          prevBucket.isComplete = true;
+        }
+      }
+
+        currentBucketKeys[windowKey] = bucketKey;
+
+      // Get or create bucket
+        if (!windowBuckets.has(bucketKey)) {
+          windowBuckets.set(bucketKey, {
+          evmBlocks: 0,
+          miniBlocks: 0,
+          isComplete: false,
+        });
+      }
+
+        const bucket = windowBuckets.get(bucketKey);
+
+        // Increment EVM blocks
+        bucket.evmBlocks++;
+
+        // Clean up old buckets
+        if (windowBuckets.size > 1000) {
+          const oldestKey = Math.min(...windowBuckets.keys());
+          windowBuckets.delete(oldestKey);
+        }
+      });
+    }
+
+    // Time window controls
+    document.querySelectorAll('.time-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Update active state
+        document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Update current window
+        const oldWindow = currentWindow;
+        currentWindow = btn.dataset.window;
+        
+        // Reset logging flag to get fresh logs for new window
+        loggedBucketData = false;
+        lastWindowDataLog = 0;
+        
+        console.log('[BlockChart] Switched from', oldWindow, 'to', currentWindow);
+        console.log('[BlockChart] Buckets for', currentWindow, ':', buckets[currentWindow].size);
+        
+        // #region agent log
+        const windowBuckets = buckets[currentWindow];
+        const sampleKeys = Array.from(windowBuckets.keys()).slice(0, 3);
+        fetch('http://127.0.0.1:7242/ingest/b765a360-4c8d-4e09-a735-de495bb101d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ascii-chart.html:windowSwitch',message:'Switched window',data:{oldWindow,newWindow:currentWindow,bucketCount:windowBuckets.size,sampleKeys:sampleKeys.map(k=>({key:k,date:new Date(k).toISOString()}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'J'})}).catch(()=>{});
+        // #endregion
+      });
+    });
+
+    // MegaETH RPC endpoint for direct fetching
+    const MEGAETH_RPC = 'https://carrot.megaeth.com/rpc';
+
+    // Fetch historical data - try backend first, fallback to direct RPC
+    async function fetchHistoricalData() {
+      console.log('[BlockChart] 🔄 Fetching precomputed data from backend...');
+      document.getElementById('connection-status').textContent = 'Loading from backend...';
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/b765a360-4c8d-4e09-a735-de495bb101d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ascii-chart.html:fetchHistoricalData',message:'Fetching from backend API',data:{API_URL},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'L'})}).catch(()=>{});
+      // #endregion
+
+      try {
+        await fetchFromBackendAPI();
+      } catch (e) {
+        console.error('[BlockChart] ❌ Backend API failed:', e);
+        document.getElementById('connection-status').textContent = 'Error: Backend not available. Start the API server.';
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/b765a360-4c8d-4e09-a735-de495bb101d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ascii-chart.html:fetchHistoricalData:error',message:'Backend failed',data:{error:e.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'L'})}).catch(()=>{});
+        // #endregion
+      }
+    }
+
+    // Fetch from backend API (fast, pre-aggregated)
+    async function fetchFromBackendAPI() {
+      console.log('[BlockChart] Fetching from backend API...');
+      
+      const windowNames = Object.keys(WINDOW_CONFIG);
+      const fetchPromises = windowNames.map(async (windowKey) => {
+        const response = await fetch(`${API_URL}/blocks/history?window=${windowKey}`);
+        if (!response.ok) throw new Error(`Failed: ${response.status}`);
+        return { windowKey, data: await response.json() };
+      });
+
+      const results = await Promise.all(fetchPromises);
+
+      for (const { windowKey, data } of results) {
+        const windowBuckets = buckets[windowKey];
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/b765a360-4c8d-4e09-a735-de495bb101d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ascii-chart.html:fetchFromBackendAPI',message:'Backend data received',data:{windowKey,bucketCount:data.buckets.length,totalEvm:data.total_evm_blocks,totalMini:data.total_mini_blocks,sampleBuckets:data.buckets.slice(0,3).map(b=>({ts:new Date(b.timestamp).toISOString(),evm:b.evm_blocks,mini:b.mini_blocks}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'L'})}).catch(()=>{});
+        // #endregion
+        
+        for (const bucket of data.buckets) {
+          windowBuckets.set(bucket.timestamp, {
+            evmBlocks: bucket.evm_blocks,
+            miniBlocks: bucket.mini_blocks,
+            isComplete: bucket.is_complete,
+          });
+        }
+        console.log('[BlockChart]', windowKey, ':', windowBuckets.size, 'buckets', 'total:', data.total_evm_blocks, 'EVM', data.total_mini_blocks, 'mini');
+      }
+
+      document.getElementById('connection-status').textContent = 'Ready ●';
+    }
+
+    // Fetch ALL blocks for current window in ONE request (no batching)
+    async function fetchFromRPCDirect() {
+      console.log('[BlockChart] 🔄 Fetching ALL blocks from MegaETH RPC...');
+      document.getElementById('connection-status').textContent = 'Fetching all blocks...';
+
+      try {
+        // Get current block number
+        const latestBlockHex = await rpcCall('eth_blockNumber', []);
+        const latestBlock = parseInt(latestBlockHex, 16);
+        
+        // Calculate how many blocks we need for current window
+        const windowDuration = getWindowDuration(currentWindow);
+        const blocksNeeded = Math.floor(windowDuration / 1000); // ~1 block per second
+        const startBlock = latestBlock - blocksNeeded;
+
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/b765a360-4c8d-4e09-a735-de495bb101d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ascii-chart.html:fetchFromRPCDirect',message:'Fetching ALL blocks (no batching)',data:{currentWindow,latestBlock,startBlock,blocksNeeded},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'K'})}).catch(()=>{});
+        // #endregion
+
+        document.getElementById('connection-status').textContent = `Fetching ${blocksNeeded} blocks...`;
+
+        // Build ONE giant batch request with ALL blocks
+        const allRequests = [];
+        for (let blockNum = startBlock; blockNum <= latestBlock; blockNum++) {
+          allRequests.push({
+            jsonrpc: '2.0',
+            method: 'eth_getBlockByNumber',
+            params: ['0x' + blockNum.toString(16), false],
+            id: blockNum,
+          });
+        }
+
+        console.log('[BlockChart] Sending single request with', allRequests.length, 'blocks');
+
+        // Send ONE request with ALL blocks
+        const response = await fetch(MEGAETH_RPC, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(allRequests),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const allResults = await response.json();
+        console.log('[BlockChart] Received', allResults.length, 'blocks');
+
+        document.getElementById('connection-status').textContent = `Processing ${allResults.length} blocks...`;
+
+        // Process ALL blocks at once
+        let processed = 0;
+        for (const result of allResults) {
+          if (result.result) {
+            processHistoricalBlock(result.result);
+            processed++;
+          }
+        }
+
+        // Mark all buckets as complete
+        Object.values(buckets).forEach(windowBuckets => {
+          windowBuckets.forEach(bucket => {
+            bucket.isComplete = true;
+          });
+        });
+
+        console.log('[BlockChart] ✅ Complete! Processed', processed, 'blocks');
+        document.getElementById('connection-status').textContent = 'Ready ●';
+
+        // #region agent log
+        const bucketCounts = {};
+        const sampleData = {};
+        Object.keys(buckets).forEach(w => { 
+          bucketCounts[w] = buckets[w].size;
+          const keys = Array.from(buckets[w].keys()).sort((a,b) => a-b);
+          if (keys.length > 0) {
+            const firstB = buckets[w].get(keys[0]);
+            const lastB = buckets[w].get(keys[keys.length-1]);
+            sampleData[w] = {
+              firstBucket: {key: keys[0], date: new Date(keys[0]).toISOString(), evm: firstB.evmBlocks, mini: firstB.miniBlocks},
+              lastBucket: {key: keys[keys.length-1], date: new Date(keys[keys.length-1]).toISOString(), evm: lastB.evmBlocks, mini: lastB.miniBlocks}
+            };
+          }
+        });
+        fetch('http://127.0.0.1:7242/ingest/b765a360-4c8d-4e09-a735-de495bb101d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ascii-chart.html:fetchComplete',message:'All blocks processed (no batching)',data:{processed,blocksNeeded,bucketCounts,sampleData},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'K'})}).catch(()=>{});
+        // #endregion
+
+      } catch (e) {
+        console.error('[BlockChart] ❌ Fetch failed:', e);
+        document.getElementById('connection-status').textContent = 'Error: ' + e.message;
+
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/b765a360-4c8d-4e09-a735-de495bb101d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ascii-chart.html:fetchError',message:'Fetch failed',data:{error:e.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'K'})}).catch(()=>{});
+        // #endregion
+      }
+    }
+
+    // Helper for single RPC call
+    async function rpcCall(method, params) {
+      const response = await fetch(MEGAETH_RPC, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+          method: method,
+          params: params,
+            id: 1,
+          }),
+        });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      return data.result;
+    }
+
+    // Average mini blocks per EVM block (learned from live data, default ~100)
+    let avgMiniBlocksPerEvmBlock = 100;
+
+    // Counter for logging (only log first few blocks)
+    let processedBlockCount = 0;
+
+    // Process a historical block and add to all window buckets
+    function processHistoricalBlock(block) {
+      const blockNumber = parseInt(block.number, 16);
+      const timestamp = parseInt(block.timestamp, 16) * 1000; // Convert to ms
+      
+      // For historical data, we estimate mini blocks since they're not available via RPC
+      // We use the average learned from live mini block subscription
+      // MegaETH typically has ~100 mini blocks per EVM block
+      const estimatedMiniBlocks = avgMiniBlocksPerEvmBlock;
+
+      // #region agent log
+      processedBlockCount++;
+      if (processedBlockCount <= 3 || processedBlockCount % 1000 === 0) {
+        const bucket1mKey = Math.floor(timestamp / (60 * 1000)) * (60 * 1000);
+        const existing1mBucket = buckets['1m'].get(bucket1mKey);
+        fetch('http://127.0.0.1:7242/ingest/b765a360-4c8d-4e09-a735-de495bb101d0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ascii-chart.html:processHistoricalBlock',message:'Processing block',data:{blockNumber,timestamp,timestampDate:new Date(timestamp).toISOString(),estimatedMiniBlocks,bucket1mKey,bucket1mKeyDate:new Date(bucket1mKey).toISOString(),existingEvm:existing1mBucket?.evmBlocks,existingMini:existing1mBucket?.miniBlocks},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'G'})}).catch(()=>{});
+      }
+      // #endregion
+
+      // Add to ALL bucket sizes
+      Object.entries(WINDOW_CONFIG).forEach(([windowKey, config]) => {
+        const bucketKey = Math.floor(timestamp / config.bucketInterval) * config.bucketInterval;
+        const windowBuckets = buckets[windowKey];
+
+        if (!windowBuckets.has(bucketKey)) {
+          windowBuckets.set(bucketKey, {
+            evmBlocks: 0,
+            miniBlocks: 0,
+            isComplete: false,
+            isHistorical: true, // Mark as historical (mini blocks estimated)
+          });
+        }
+
+        const bucket = windowBuckets.get(bucketKey);
+        bucket.evmBlocks++;
+        bucket.miniBlocks += estimatedMiniBlocks;
+      });
+
+      // Track last block for live updates
+      if (blockNumber > lastEvmBlock) {
+        lastEvmBlock = blockNumber;
+      }
+    }
+
+    // Update the average mini blocks per EVM block from live data
+    function updateMiniBlockAverage() {
+      if (miniBlocksPerEvmBlock.size > 10) {
+        const values = Array.from(miniBlocksPerEvmBlock.values());
+        const sum = values.reduce((a, b) => a + b, 0);
+        avgMiniBlocksPerEvmBlock = Math.round(sum / values.length);
+        console.log('[BlockChart] Updated avg mini blocks per EVM block:', avgMiniBlocksPerEvmBlock);
+        
+        // Keep only recent entries to avoid memory bloat
+        if (miniBlocksPerEvmBlock.size > 1000) {
+          const keys = Array.from(miniBlocksPerEvmBlock.keys()).sort((a, b) => a - b);
+          for (let i = 0; i < 500; i++) {
+            miniBlocksPerEvmBlock.delete(keys[i]);
+          }
+        }
+      }
+    }
+
+    // Periodically update average
+    setInterval(updateMiniBlockAverage, 10000); // Every 10 seconds
+
+    // Start
+    new p5(sketch, 'canvas-container');
+
+    // Fetch historical data first, then connect WebSocket for live updates
+    fetchHistoricalData().then(() => {
+      console.log('[BlockChart] Starting WebSocket for live updates...');
+      connectWebSocket();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+[package]
+name = "megaviz-api"
+version = "0.1.0"
+edition = "2021"
+description = "MegaETH metrics API for MegaViz"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.42", features = ["full"] }
+
+# Web server
+axum = { version = "0.8", features = ["macros", "ws"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+
+# WebSocket
+futures = "0.3"
+
+# Ethereum types and RPC
+alloy = { version = "1.0", features = ["full", "rpc", "providers", "transports", "transport-http", "eips"] }
+alloy-primitives = "1.0"
+
+# DA size calculation (exact same library MegaETH uses)
+op-alloy-flz = "0.13"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hex = "0.4"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Environment
+dotenvy = "0.15"
+reqwest = { version = "0.12.28", features = ["json"] }
+
+[dev-dependencies]
+tokio-test = "0.4"

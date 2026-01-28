@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MegaETH Contract Deployment Heatmap</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.4.2/pixi.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      overflow: hidden;
+    }
+
+    #container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #header {
+      padding: 20px 40px;
+      background: rgba(15, 15, 25, 0.8);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    #title {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #00ff88;
+      letter-spacing: -0.5px;
+    }
+
+    #subtitle {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 15px;
+    }
+
+    #view-controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    .view-btn {
+      padding: 8px 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #aaa;
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .view-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(0, 255, 136, 0.3);
+    }
+
+    .view-btn.active {
+      background: rgba(0, 255, 136, 0.1);
+      border-color: #00ff88;
+      color: #00ff88;
+    }
+
+    #canvas-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #canvas-container canvas {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    #tooltip {
+      position: absolute;
+      background: rgba(10, 10, 20, 0.75);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      border-radius: 8px;
+      padding: 15px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 1000;
+      min-width: 300px;
+      max-width: 400px;
+      backdrop-filter: blur(15px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    }
+
+    #tooltip.visible {
+      opacity: 1;
+    }
+
+    .tooltip-header {
+      font-size: 14px;
+      color: #00ff88;
+      margin-bottom: 12px;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+      padding-bottom: 8px;
+    }
+
+    .tooltip-section {
+      margin-bottom: 10px;
+    }
+
+    .tooltip-label {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .tooltip-value {
+      font-size: 13px;
+      color: #e0e0e0;
+      margin-bottom: 6px;
+    }
+
+    .tooltip-list {
+      max-height: 150px;
+      overflow-y: auto;
+      font-size: 11px;
+      color: #aaa;
+      line-height: 1.6;
+    }
+
+    .tooltip-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .tooltip-list::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 3px;
+    }
+
+    .tooltip-list::-webkit-scrollbar-thumb {
+      background: rgba(0, 255, 136, 0.3);
+      border-radius: 3px;
+    }
+
+    #legend {
+      position: absolute;
+      bottom: 15px;
+      right: 15px;
+      background: rgba(10, 10, 20, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 12px;
+      min-width: 180px;
+      backdrop-filter: blur(10px);
+      z-index: 100;
+    }
+
+    .legend-title {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .legend-gradient {
+      height: 20px;
+      border-radius: 4px;
+      background: linear-gradient(to right,
+        #1a4d6d 0%,
+        #2d7a8a 20%,
+        #4fa89f 40%,
+        #8fd66b 60%,
+        #f4e442 80%,
+        #ff6b35 100%
+      );
+      margin-bottom: 8px;
+    }
+
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #666;
+    }
+
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 16px;
+      color: #00ff88;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="header">
+      <div id="title">Contract Deployment Heatmap</div>
+      <div id="subtitle">Real-time contract deployment activity on MegaETH</div>
+      <div id="view-controls">
+        <button class="view-btn active" data-view="daily">Daily (14d × 24h)</button>
+        <button class="view-btn" data-view="monthly">Monthly (12m × 31d)</button>
+      </div>
+    </div>
+
+    <div id="canvas-container">
+      <div id="loading">Loading data...</div>
+      <div id="tooltip">
+        <div class="tooltip-header" id="tooltip-header"></div>
+        <div id="tooltip-content"></div>
+      </div>
+      <div id="legend">
+        <div class="legend-title">Contracts Deployed</div>
+        <div class="legend-gradient"></div>
+        <div class="legend-labels">
+          <span>Low</span>
+          <span>High</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3001';
+    const CELL_GAP = 2;
+    const PADDING = { top: 60, right: 40, bottom: 40, left: 100 };
+
+    let app, heatmapData, currentView = 'daily', detailsCache = new Map();
+    let CELL_SIZE = 28; // Will be dynamically calculated
+
+    // Color scale (blue → green → yellow → orange/red)
+    const colorStops = [
+      { pos: 0.0, color: [26, 77, 109] },    // Blue
+      { pos: 0.2, color: [45, 122, 138] },   // Teal
+      { pos: 0.4, color: [79, 168, 159] },   // Cyan
+      { pos: 0.6, color: [143, 214, 107] },  // Green
+      { pos: 0.8, color: [244, 228, 66] },   // Yellow
+      { pos: 1.0, color: [255, 107, 53] }    // Orange/Red
+    ];
+
+    function interpolateColor(t) {
+      t = Math.max(0, Math.min(1, t));
+
+      let idx = 0;
+      for (let i = 0; i < colorStops.length - 1; i++) {
+        if (t >= colorStops[i].pos && t <= colorStops[i + 1].pos) {
+          idx = i;
+          break;
+        }
+      }
+
+      const stop1 = colorStops[idx];
+      const stop2 = colorStops[idx + 1];
+      const localT = (t - stop1.pos) / (stop2.pos - stop1.pos);
+
+      const r = Math.round(stop1.color[0] + (stop2.color[0] - stop1.color[0]) * localT);
+      const g = Math.round(stop1.color[1] + (stop2.color[1] - stop1.color[1]) * localT);
+      const b = Math.round(stop1.color[2] + (stop2.color[2] - stop1.color[2]) * localT);
+
+      return (r << 16) | (g << 8) | b;
+    }
+
+    function calculatePercentiles(values) {
+      if (values.length === 0) return { p10: 0, p90: 0 };
+
+      const sorted = [...values].sort((a, b) => a - b);
+      const p10Idx = Math.floor(sorted.length * 0.1);
+      const p90Idx = Math.floor(sorted.length * 0.9);
+
+      return {
+        p10: sorted[p10Idx],
+        p90: sorted[p90Idx]
+      };
+    }
+
+    function normalizeValue(value, p10, p90) {
+      if (value <= p10) return 0.0;
+      if (value >= p90) return 1.0;
+      return (value - p10) / (p90 - p10);
+    }
+
+    async function fetchHeatmapData(view) {
+      console.log('Fetching heatmap data for view:', view);
+      console.log('API URL:', `${API_BASE}/api/deployments/heatmap?view=${view}`);
+
+      try {
+        const response = await fetch(`${API_BASE}/api/deployments/heatmap?view=${view}`);
+        console.log('Response status:', response.status);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Received data:', data.length, 'cells');
+        return data;
+      } catch (error) {
+        console.error('Fetch error:', error);
+        throw error;
+      }
+    }
+
+    async function fetchCellDetails(startTime, endTime) {
+      const cacheKey = `${startTime}_${endTime}`;
+      if (detailsCache.has(cacheKey)) {
+        return detailsCache.get(cacheKey);
+      }
+
+      const response = await fetch(
+        `${API_BASE}/api/deployments/details?start=${encodeURIComponent(startTime)}&end=${encodeURIComponent(endTime)}`
+      );
+      if (!response.ok) throw new Error('Failed to fetch cell details');
+
+      const details = await response.json();
+      detailsCache.set(cacheKey, details);
+      return details;
+    }
+
+    function getGridDimensions(view) {
+      switch (view) {
+        case 'daily':
+          return { rows: 14, cols: 24, rowLabel: 'Days', colLabel: 'Hours' };
+        case 'weekly':
+          return { rows: 12, cols: 7, rowLabel: 'Weeks', colLabel: 'Weekdays' };
+        case 'monthly':
+          return { rows: 12, cols: 31, rowLabel: 'Months', colLabel: 'Days' };
+        default:
+          return { rows: 14, cols: 24, rowLabel: 'Days', colLabel: 'Hours' };
+      }
+    }
+
+    function formatTimeLabel(view, rowIdx, colIdx, timestamp) {
+      const date = new Date(timestamp);
+
+      switch (view) {
+        case 'daily': {
+          // Use the actual timestamp from the data
+          return {
+            row: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            col: `${colIdx}:00`,
+            tooltip: `${date.toLocaleDateString('en-US', {
+              weekday: 'short', month: 'short', day: 'numeric'
+            })}, ${colIdx}:00–${colIdx + 1}:00`
+          };
+        }
+        case 'weekly': {
+          const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+          const weekStart = new Date(date);
+          weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
+          return {
+            row: `Week ${12 - rowIdx}`,
+            col: weekdays[colIdx],
+            tooltip: `Week of ${weekStart.toLocaleDateString('en-US', {
+              month: 'short', day: 'numeric'
+            })}, ${weekdays[colIdx]}`
+          };
+        }
+        case 'monthly': {
+          // Use the actual timestamp from the data, not an offset
+          const month = date.toLocaleDateString('en-US', { month: 'short' });
+          const year = date.getFullYear();
+          return {
+            row: `${month} ${year}`,
+            col: `${colIdx + 1}`,
+            tooltip: `${date.toLocaleDateString('en-US', {
+              year: 'numeric', month: 'long'
+            })}, day ${colIdx + 1}`
+          };
+        }
+        default:
+          return { row: `${rowIdx}`, col: `${colIdx}`, tooltip: 'Unknown' };
+      }
+    }
+
+    function organizeMonthlyData(rawData) {
+      // For monthly view, organize data into 12 months × 31 days grid
+      // rawData comes as daily buckets in chronological order
+
+      // Group raw data by month and day for easy lookup
+      const dataMap = new Map();
+
+      rawData.forEach(cell => {
+        const date = new Date(cell.timestamp);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const day = date.getDate();
+
+        if (!dataMap.has(monthKey)) {
+          dataMap.set(monthKey, new Map());
+        }
+        dataMap.get(monthKey).set(day, cell);
+      });
+
+      // Determine the start month (Dec 2025 or earliest data month)
+      const frontierLaunch = new Date('2025-12-01'); // December 2025
+      let startYear = frontierLaunch.getFullYear();
+      let startMonth = frontierLaunch.getMonth();
+
+      // If we have earlier data, start from the earliest data month
+      if (rawData.length > 0) {
+        const earliestDate = new Date(rawData[0].timestamp);
+        if (earliestDate < frontierLaunch) {
+          startYear = earliestDate.getFullYear();
+          startMonth = earliestDate.getMonth();
+        }
+      }
+
+      // Generate 12 consecutive months starting from the start month
+      const gridData = [];
+      const now = new Date();
+
+      for (let monthOffset = 0; monthOffset < 12; monthOffset++) {
+        const currentMonth = (startMonth + monthOffset) % 12;
+        const currentYear = startYear + Math.floor((startMonth + monthOffset) / 12);
+
+        // Stop if we're trying to display future months beyond current month
+        if (currentYear > now.getFullYear() ||
+            (currentYear === now.getFullYear() && currentMonth > now.getMonth())) {
+          // Fill remaining months with empty data
+          for (let day = 1; day <= 31; day++) {
+            const date = new Date(currentYear, currentMonth, day);
+            gridData.push({
+              timestamp: date.toISOString(),
+              contracts_deployed: 0,
+              unique_deployers: 0,
+              avg_contract_size: 0,
+              p95_contract_size: 0,
+              total_code_bytes: 0,
+              total_deploy_gas: 0,
+              avg_deploy_gas: 0
+            });
+          }
+          continue;
+        }
+
+        const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+        const monthData = dataMap.get(monthKey);
+
+        // Create 31 cells for this month (days 1-31)
+        for (let day = 1; day <= 31; day++) {
+          const cell = monthData?.get(day);
+
+          if (cell) {
+            // Use actual data
+            gridData.push(cell);
+          } else {
+            // Create empty cell for missing day
+            const date = new Date(currentYear, currentMonth, day);
+            gridData.push({
+              timestamp: date.toISOString(),
+              contracts_deployed: 0,
+              unique_deployers: 0,
+              avg_contract_size: 0,
+              p95_contract_size: 0,
+              total_code_bytes: 0,
+              total_deploy_gas: 0,
+              avg_deploy_gas: 0
+            });
+          }
+        }
+      }
+
+      return gridData;
+    }
+
+    function drawHeatmap(data) {
+      if (!app) return;
+
+      // Clear previous graphics
+      app.stage.removeChildren();
+
+      const dims = getGridDimensions(currentView);
+
+      // For monthly view, reorganize data into month/day grid
+      if (currentView === 'monthly') {
+        data = organizeMonthlyData(data);
+      }
+
+      // Calculate available space (leave some margin for legend)
+      const container = document.getElementById('canvas-container');
+      const availableWidth = container.clientWidth - 20; // Small margin
+      const availableHeight = container.clientHeight - 20; // Small margin
+
+      console.log('Available space:', availableWidth, 'x', availableHeight);
+      console.log('Grid dimensions:', dims.cols, 'cols x', dims.rows, 'rows');
+
+      // Calculate cell size to fit viewport
+      const maxCellWidth = (availableWidth - PADDING.left - PADDING.right) / (dims.cols + dims.cols * CELL_GAP / 20);
+      const maxCellHeight = (availableHeight - PADDING.top - PADDING.bottom) / (dims.rows + dims.rows * CELL_GAP / 20);
+      CELL_SIZE = Math.floor(Math.min(maxCellWidth, maxCellHeight, 35)); // Max 35px per cell
+
+      // Ensure minimum cell size for visibility
+      CELL_SIZE = Math.max(CELL_SIZE, 12);
+
+      console.log('Calculated CELL_SIZE:', CELL_SIZE);
+
+      const width = Math.min(dims.cols * (CELL_SIZE + CELL_GAP) + PADDING.left + PADDING.right, availableWidth);
+      const height = Math.min(dims.rows * (CELL_SIZE + CELL_GAP) + PADDING.top + PADDING.bottom, availableHeight);
+
+      console.log('Canvas size:', width, 'x', height);
+
+      // Resize canvas to fit the grid
+      app.renderer.resize(width, height);
+
+      // Calculate percentiles for color scaling (only non-zero values)
+      const nonZeroValues = data
+        .filter(d => d.contracts_deployed > 0)
+        .map(d => d.contracts_deployed);
+      const { p10, p90 } = calculatePercentiles(nonZeroValues);
+
+      // Create grid
+      const grid = new PIXI.Container();
+
+      // Draw cells
+      data.forEach((cell, idx) => {
+        const rowIdx = Math.floor(idx / dims.cols);
+        const colIdx = idx % dims.cols;
+
+        const x = PADDING.left + colIdx * (CELL_SIZE + CELL_GAP);
+        const y = PADDING.top + rowIdx * (CELL_SIZE + CELL_GAP);
+
+        const rect = new PIXI.Graphics();
+
+        if (cell.contracts_deployed === 0) {
+          // Empty cell - just outline
+          rect.lineStyle(1, 0x333333, 0.3);
+          rect.drawRect(x, y, CELL_SIZE, CELL_SIZE);
+        } else {
+          // Color based on percentile
+          const normalizedValue = normalizeValue(cell.contracts_deployed, p10, p90);
+          const color = interpolateColor(normalizedValue);
+
+          rect.beginFill(color);
+          rect.drawRect(x, y, CELL_SIZE, CELL_SIZE);
+          rect.endFill();
+        }
+
+        rect.interactive = true;
+        rect.buttonMode = true;
+
+        // Store border highlight as a property
+        const border = new PIXI.Graphics();
+        border.visible = false;
+        grid.addChild(border);
+
+        rect.on('mouseover', async () => {
+          rect.alpha = 0.8;
+
+          // Draw highlight border
+          border.clear();
+          border.lineStyle(3, 0x00ff88, 1);
+          border.drawRect(x - 1, y - 1, CELL_SIZE + 2, CELL_SIZE + 2);
+          border.visible = true;
+
+          await showTooltip(cell, rowIdx, colIdx, x, y);
+        });
+
+        rect.on('mouseout', () => {
+          rect.alpha = 1.0;
+          border.visible = false;
+          hideTooltip();
+        });
+
+        grid.addChild(rect);
+      });
+
+      // Draw row labels
+      for (let i = 0; i < dims.rows; i++) {
+        const timestamp = data[i * dims.cols]?.timestamp || new Date().toISOString();
+        const labels = formatTimeLabel(currentView, i, 0, timestamp);
+
+        const text = new PIXI.Text(labels.row, {
+          fontFamily: 'Courier New, monospace',
+          fontSize: 11,
+          fill: 0x888888,
+          align: 'right'
+        });
+        text.x = PADDING.left - 15;
+        text.y = PADDING.top + i * (CELL_SIZE + CELL_GAP) + CELL_SIZE / 2;
+        text.anchor.set(1, 0.5);
+        grid.addChild(text);
+      }
+
+      // Draw column labels (skip some in daily view to avoid clustering)
+      const labelStep = currentView === 'daily' ? 3 : 1; // Show every 3rd hour in daily view
+      for (let i = 0; i < dims.cols; i++) {
+        if (i % labelStep !== 0 && currentView === 'daily') continue; // Skip some labels in daily view
+
+        const timestamp = data[i]?.timestamp || new Date().toISOString();
+        const labels = formatTimeLabel(currentView, 0, i, timestamp);
+
+        const text = new PIXI.Text(labels.col, {
+          fontFamily: 'Courier New, monospace',
+          fontSize: 11,
+          fill: 0x888888,
+          align: 'center'
+        });
+        text.x = PADDING.left + i * (CELL_SIZE + CELL_GAP) + CELL_SIZE / 2;
+        text.y = PADDING.top - 10;
+        text.anchor.set(0.5, 1);
+        grid.addChild(text);
+      }
+
+      app.stage.addChild(grid);
+    }
+
+    async function showTooltip(cell, rowIdx, colIdx, x, y) {
+      const tooltip = document.getElementById('tooltip');
+      const header = document.getElementById('tooltip-header');
+      const content = document.getElementById('tooltip-content');
+
+      const labels = formatTimeLabel(currentView, rowIdx, colIdx, cell.timestamp);
+      header.textContent = labels.tooltip;
+
+      if (cell.contracts_deployed === 0) {
+        content.innerHTML = '<div class="tooltip-value">No contracts deployed</div>';
+      } else {
+        // Fetch detailed data
+        const endTime = new Date(new Date(cell.timestamp).getTime() + 3600000).toISOString();
+        const details = await fetchCellDetails(cell.timestamp, endTime);
+
+        content.innerHTML = `
+          <div class="tooltip-section">
+            <div class="tooltip-label">Deployment Stats</div>
+            <div class="tooltip-value">Contracts: ${details.contracts_deployed}</div>
+            <div class="tooltip-value">Unique Deployers: ${details.unique_deployers}</div>
+          </div>
+
+          <div class="tooltip-section">
+            <div class="tooltip-label">Contract Size</div>
+            <div class="tooltip-value">Average: ${Math.round(details.avg_contract_size).toLocaleString()} bytes</div>
+            <div class="tooltip-value">P95: ${Math.round(details.p95_contract_size).toLocaleString()} bytes</div>
+          </div>
+
+          <div class="tooltip-section">
+            <div class="tooltip-label">Gas Usage</div>
+            <div class="tooltip-value">Total: ${details.total_deploy_gas.toLocaleString()} gas</div>
+            <div class="tooltip-value">Average: ${Math.round(details.avg_deploy_gas).toLocaleString()} gas</div>
+          </div>
+
+          ${details.contract_types.length > 0 ? `
+            <div class="tooltip-section">
+              <div class="tooltip-label">Contract Types</div>
+              ${details.contract_types.map(type =>
+                `<div class="tooltip-value">${type}</div>`
+              ).join('')}
+            </div>
+          ` : ''}
+
+          ${details.contract_addresses.length > 0 && details.contract_addresses.length <= 10 ? `
+            <div class="tooltip-section">
+              <div class="tooltip-label">Deployed Contracts</div>
+              <div class="tooltip-list">
+                ${details.contract_addresses.slice(0, 10).map(addr =>
+                  `<div>${addr}</div>`
+                ).join('')}
+                ${details.contract_addresses.length > 10 ?
+                  `<div>+${details.contract_addresses.length - 10} more...</div>` : ''}
+              </div>
+            </div>
+          ` : ''}
+        `;
+      }
+
+      // Position tooltip with smart placement
+      const canvasRect = document.getElementById('canvas-container').getBoundingClientRect();
+      const tooltipRect = tooltip.getBoundingClientRect();
+      const tooltipWidth = tooltipRect.width || 320;
+      const tooltipHeight = tooltipRect.height || 300;
+
+      // Minimum spacing: selected square + 1 adjacent square + gap
+      const minSpacing = (CELL_SIZE + CELL_GAP) * 2 + 10; // 2 full cells + gap
+
+      // Calculate absolute position of the square on screen
+      const squareAbsoluteX = canvasRect.left + x;
+      const squareAbsoluteY = canvasRect.top + y;
+      const squareRight = squareAbsoluteX + CELL_SIZE;
+
+      // Determine if there's room on the right side of the square
+      const spaceOnRight = window.innerWidth - squareRight;
+      const needsRoomRight = minSpacing + tooltipWidth;
+
+      let tooltipLeft, tooltipTop;
+
+      // Try to position on the RIGHT first (default)
+      if (spaceOnRight >= needsRoomRight) {
+        // Position to the right with minimum spacing
+        tooltipLeft = x + minSpacing;
+      }
+      // Try to position on the LEFT
+      else {
+        const spaceOnLeft = squareAbsoluteX;
+        const needsRoomLeft = minSpacing + tooltipWidth;
+
+        if (spaceOnLeft >= needsRoomLeft) {
+          // Position to the left with minimum spacing
+          tooltipLeft = x - minSpacing - tooltipWidth;
+        }
+        // Not enough room on either side, position to right anyway
+        else {
+          tooltipLeft = x + minSpacing;
+        }
+      }
+
+      // Ensure tooltip doesn't go off the left edge of canvas
+      if (tooltipLeft < 0) {
+        tooltipLeft = 10;
+      }
+
+      // Ensure tooltip doesn't go off the right edge of canvas
+      const canvasWidth = canvasRect.width;
+      if (tooltipLeft + tooltipWidth > canvasWidth) {
+        tooltipLeft = Math.max(10, canvasWidth - tooltipWidth - 10);
+      }
+
+      // Vertical positioning: Align with square top
+      tooltipTop = y;
+
+      // Ensure tooltip stays within canvas vertical bounds
+      const minTop = PADDING.top;
+      const maxTop = canvasRect.height - tooltipHeight - 10;
+
+      if (tooltipTop < minTop) {
+        tooltipTop = minTop;
+      } else if (tooltipTop > maxTop && maxTop > minTop) {
+        tooltipTop = maxTop;
+      }
+
+      tooltip.style.left = `${tooltipLeft}px`;
+      tooltip.style.top = `${tooltipTop}px`;
+      tooltip.classList.add('visible');
+    }
+
+    function hideTooltip() {
+      const tooltip = document.getElementById('tooltip');
+      tooltip.classList.remove('visible');
+    }
+
+    async function loadAndDisplay(view) {
+      const loadingEl = document.getElementById('loading');
+      loadingEl.style.display = 'block';
+      loadingEl.textContent = 'Loading data...';
+
+      try {
+        console.log('=== Starting loadAndDisplay for view:', view);
+        heatmapData = await fetchHeatmapData(view);
+        console.log('Data fetched successfully, drawing heatmap...');
+        drawHeatmap(heatmapData);
+        loadingEl.style.display = 'none';
+        console.log('=== Heatmap drawn successfully');
+      } catch (error) {
+        console.error('=== Error loading heatmap:', error);
+        loadingEl.style.display = 'block';
+        loadingEl.innerHTML = `
+          <div style="color: #ff6b6b;">Error loading data</div>
+          <div style="font-size: 12px; color: #888; margin-top: 10px;">
+            ${error.message}<br><br>
+            <strong>Possible fixes:</strong><br>
+            1. Make sure API is running (QUESTDB_ENABLED=true ./target/release/megaviz-api)<br>
+            2. Open via http:// not file:// (run: python3 -m http.server 8080)<br>
+            3. Check browser console (F12) for details
+          </div>
+        `;
+      }
+    }
+
+    // Initialize PixiJS
+    async function init() {
+      console.log('=== Initializing application...');
+
+      try {
+        console.log('Creating PixiJS application...');
+
+        // Get container dimensions
+        const container = document.getElementById('canvas-container');
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+
+        console.log('Container dimensions:', containerWidth, 'x', containerHeight);
+
+        app = new PIXI.Application({
+          width: containerWidth,
+          height: containerHeight,
+          backgroundColor: 0x0a0a0f,
+          antialias: true,
+          resolution: window.devicePixelRatio || 1,
+        });
+        console.log('PixiJS application created successfully');
+
+        container.appendChild(app.view);
+        console.log('Canvas added to DOM');
+
+        // View button handlers
+        document.querySelectorAll('.view-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            currentView = e.target.dataset.view;
+            detailsCache.clear();
+            await loadAndDisplay(currentView);
+          });
+        });
+        console.log('View button handlers attached');
+
+        // Load initial view
+        console.log('Loading initial view:', currentView);
+        await loadAndDisplay(currentView);
+
+        // Handle window resize
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+          clearTimeout(resizeTimeout);
+          resizeTimeout = setTimeout(() => {
+            console.log('Window resized, redrawing heatmap...');
+            if (heatmapData) {
+              drawHeatmap(heatmapData);
+            }
+          }, 250);
+        });
+      } catch (error) {
+        console.error('=== Fatal error during initialization:', error);
+        document.getElementById('loading').innerHTML = `
+          <div style="color: #ff6b6b;">Fatal Error</div>
+          <div style="font-size: 12px; color: #888; margin-top: 10px;">
+            ${error.message || error}<br><br>
+            Check browser console (F12) for details
+          </div>
+        `;
+      }
+    }
+
+    // Start when page loads
+    console.log('=== Script loaded, waiting for DOM...');
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        console.log('=== DOM ready, calling init()');
+        init();
+      });
+    } else {
+      console.log('=== DOM already ready, calling init()');
+      init();
+    }
+  </script>
+</body>
+</html>

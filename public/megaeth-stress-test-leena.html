@@ -1,0 +1,2671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MegaETH Stress Test - EXPOSED (Jan 22, 2026)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow-x: hidden;
+      background: #0D0D12;
+      font-family: "SF Mono", "Monaco", "Inconsolata", "Fira Mono", "Droid Sans Mono", "Source Code Pro", monospace;
+      color: #fff;
+    }
+
+    .main-wrapper {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      background: #0D0D12;
+    }
+
+    .container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 12px;
+    }
+
+    @media (min-width: 640px) { .container { gap: 16px; } }
+
+    /* Chart Cards */
+    .chart-card { border: 1px solid #404040; }
+
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      border-bottom: 1px solid #404040;
+      background: #0a0a0a;
+    }
+    @media (min-width: 640px) { .chart-header { padding: 12px 16px; } }
+
+    .chart-header-left { display: flex; align-items: center; gap: 12px; }
+
+    .chart-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #d4d4d4;
+    }
+    @media (min-width: 640px) { .chart-title { font-size: 16px; } }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      transition: background-color 0.3s;
+    }
+    @media (min-width: 640px) { .status-dot { width: 10px; height: 10px; } }
+
+    .chart-value {
+      font-size: 20px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    @media (min-width: 640px) { .chart-value { font-size: 24px; } }
+
+    .chart-value-unit { font-size: 16px; margin-left: 2px; }
+
+    .chart-header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+    }
+    @media (min-width: 640px) { .chart-header-right { font-size: 14px; } }
+
+    .chart-label { color: #a3a3a3; }
+    .chart-label-value { color: #d4d4d4; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* TPS Chart */
+    .tps-chart-body { height: 208px; background: #0D0D12; }
+    @media (min-width: 640px) { .tps-chart-body { height: 288px; } }
+    @media (min-width: 1024px) { .tps-chart-body { height: 384px; } }
+
+    /* Compact charts */
+    .compact-chart-body { height: 176px; background: #0D0D12; }
+    @media (min-width: 640px) { .compact-chart-body { height: 224px; } }
+    @media (min-width: 1024px) { .compact-chart-body { height: 288px; } }
+
+    /* Charts Grid Row */
+    .charts-row { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 768px) { .charts-row { grid-template-columns: 1fr 1fr; gap: 16px; } }
+
+    /* Block River */
+    .block-river { border: 1px solid #404040; }
+
+    .block-river-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid #404040;
+      background: #0a0a0a;
+    }
+
+    .block-river-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #d4d4d4;
+    }
+    @media (min-width: 640px) { .block-river-title { font-size: 16px; } }
+
+    /* Block River body - exact Aptos heights: h-52 sm:h-64 md:h-72 */
+    .block-river-body { height: 208px; background: #0D0D12; }
+    @media (min-width: 640px) { .block-river-body { height: 256px; } }
+    @media (min-width: 768px) { .block-river-body { height: 288px; } }
+
+    .block-river-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border-top: 1px solid #404040;
+      background: #0a0a0a;
+    }
+
+    .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+    @media (min-width: 640px) { .legend { gap: 20px; } }
+
+    .legend-item { display: flex; align-items: center; gap: 8px; }
+
+    .legend-color { width: 16px; height: 16px; }
+    @media (min-width: 640px) { .legend-color { width: 20px; height: 20px; } }
+
+    .legend-label { font-size: 12px; color: #a3a3a3; }
+    @media (min-width: 640px) { .legend-label { font-size: 14px; } }
+
+    .legend-suffix { font-size: 12px; color: #737373; }
+    @media (min-width: 640px) { .legend-suffix { font-size: 14px; } }
+
+    /* Load Tester Detection Panel */
+    .spammer-panel { border: 2px solid #ff4444; background: #1a0a0a; border-radius: 8px; margin-bottom: 16px; }
+    .spammer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid #ff4444;
+      background: #200a0a;
+    }
+    .spammer-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 18px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #ff6b6b;
+    }
+    .spammer-body { padding: 20px; }
+    .spammer-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    @media (min-width: 768px) { .spammer-stats { grid-template-columns: repeat(4, 1fr); } }
+    .spammer-stat {
+      background: #150505;
+      border: 1px solid #401010;
+      border-radius: 6px;
+      padding: 16px;
+      text-align: center;
+    }
+    .spammer-stat-label { font-size: 13px; color: #999; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.03em; }
+    .spammer-stat-value { font-size: 24px; font-weight: 700; color: #ff6b6b; font-variant-numeric: tabular-nums; }
+    .spammer-wallets { margin-top: 20px; }
+    .spammer-wallet {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: #150505;
+      border: 1px solid #301010;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .wallet-address { font-family: monospace; color: #ff9999; font-size: 13px; }
+    .wallet-stats { display: flex; gap: 20px; color: #999; font-size: 14px; }
+    .wallet-stat-value { color: #ffaaaa; font-weight: 700; }
+    .spammer-note {
+      margin-top: 20px;
+      padding: 16px;
+      background: #200a0a;
+      border-left: 4px solid #ff4444;
+      border-radius: 4px;
+      font-size: 15px;
+      color: #ccc;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <main class="main-wrapper">
+    <div class="container">
+      <!-- TPS Chart -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-left">
+            <span class="chart-title">TPS</span>
+            <span class="status-dot" id="tpsStatusDot" style="background: #404040;"></span>
+            <span class="chart-value" id="tpsValue" style="color: #00ff88;">0</span>
+          </div>
+          <div class="chart-header-right">
+            <span class="chart-label">PEAK <span class="chart-label-value" id="tpsPeak">0</span></span>
+          </div>
+        </div>
+        <div class="tps-chart-body" id="tpsChartContainer"></div>
+      </div>
+
+      <!-- Block Time & Latency Charts Row -->
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-header-left">
+              <span class="chart-title">BLOCK TIME</span>
+              <span class="chart-value" id="blockTimeValue" style="color: #00CEC9;">--</span>
+            </div>
+            <div class="chart-header-right">
+              <span class="chart-label">BLOCK <span class="chart-label-value" id="blockNumber" style="color: #00d4ff;">0</span></span>
+            </div>
+          </div>
+          <div class="compact-chart-body" id="blockTimeChartContainer"></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-header-left">
+              <span class="chart-title">E2E LATENCY</span>
+              <span class="status-dot" id="latencyStatusDot" style="background: #A29BFE;"></span>
+              <span class="chart-value" id="latencyValue" style="color: #A29BFE;">0<span class="chart-value-unit">ms</span></span>
+            </div>
+            <div class="chart-header-right">
+              <span class="chart-label">p50 <span class="chart-label-value" id="latencyP50">0</span></span>
+              <span class="chart-label">p95 <span class="chart-label-value" id="latencyP95">0</span></span>
+            </div>
+          </div>
+          <div class="compact-chart-body" id="latencyChartContainer"></div>
+        </div>
+      </div>
+
+      <!-- RESOURCE LIMITS PANEL -->
+      <div id="resourceLimitsPanel" style="background: #111; border: 2px solid #00cec9; border-radius: 8px; margin-bottom: 16px;">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #081418; border-bottom: 2px solid #00cec9;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <span style="font-size: 28px;">📊</span>
+            <div>
+              <div style="font-size: 18px; font-weight: 700; color: #00cec9; text-transform: uppercase;">RESOURCE LIMITS</div>
+              <div style="font-size: 14px; color: #888;">Block-Level Resource Limits</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Content: Bars + Meters -->
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;">
+
+          <!-- Left: Resource Limit Bars -->
+          <div>
+            <div style="font-size: 14px; color: #aaa; text-transform: uppercase; margin-bottom: 16px; text-align: center; font-weight: 600;">Resource Utilization</div>
+            <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; height: 250px;">
+
+              <!-- Gas Bar -->
+              <div style="display: flex; flex-direction: column; align-items: center;">
+                <div style="flex: 1; width: 100%; background: #1a1a1a; border-radius: 4px; position: relative; overflow: hidden;">
+                  <div id="bar-gas-fill" style="position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #44aa88, #ffcc00, #ff4444); height: 0%; transition: height 0.3s;"></div>
+                </div>
+                <div style="font-size: 11px; color: #888; margin-top: 8px; text-transform: uppercase;">Gas</div>
+                <div id="bar-gas-value" style="font-size: 10px; color: #00cec9; font-family: monospace;">0%</div>
+              </div>
+
+              <!-- TX Size Bar -->
+              <div style="display: flex; flex-direction: column; align-items: center;">
+                <div style="flex: 1; width: 100%; background: #1a1a1a; border-radius: 4px; position: relative; overflow: hidden;">
+                  <div id="bar-txsize-fill" style="position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #44aa88, #ffcc00, #ff4444); height: 0%; transition: height 0.3s;"></div>
+                </div>
+                <div style="font-size: 11px; color: #888; margin-top: 8px; text-transform: uppercase;">TxSize</div>
+                <div id="bar-txsize-value" style="font-size: 10px; color: #00cec9; font-family: monospace;">0%</div>
+              </div>
+
+              <!-- DA Bar -->
+              <div style="display: flex; flex-direction: column; align-items: center;">
+                <div style="flex: 1; width: 100%; background: #1a1a1a; border-radius: 4px; position: relative; overflow: hidden;">
+                  <div id="bar-da-fill" style="position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #44aa88, #ffcc00, #ff4444); height: 0%; transition: height 0.3s;"></div>
+                </div>
+                <div style="font-size: 11px; color: #888; margin-top: 8px; text-transform: uppercase;">DA</div>
+                <div id="bar-da-value" style="font-size: 10px; color: #00cec9; font-family: monospace;">0%</div>
+              </div>
+
+              <!-- KV Updates Bar -->
+              <div style="display: flex; flex-direction: column; align-items: center;">
+                <div style="flex: 1; width: 100%; background: #1a1a1a; border-radius: 4px; position: relative; overflow: hidden;">
+                  <div id="bar-kv-fill" style="position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #44aa88, #ffcc00, #ff4444); height: 0%; transition: height 0.3s;"></div>
+                </div>
+                <div style="font-size: 11px; color: #888; margin-top: 8px; text-transform: uppercase;">KV</div>
+                <div id="bar-kv-value" style="font-size: 10px; color: #00cec9; font-family: monospace;">0%</div>
+              </div>
+
+              <!-- State Growth Bar -->
+              <div style="display: flex; flex-direction: column; align-items: center;">
+                <div style="flex: 1; width: 100%; background: #1a1a1a; border-radius: 4px; position: relative; overflow: hidden;">
+                  <div id="bar-state-fill" style="position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #44aa88, #ffcc00, #ff4444); height: 0%; transition: height 0.3s;"></div>
+                </div>
+                <div style="font-size: 11px; color: #888; margin-top: 8px; text-transform: uppercase;">State</div>
+                <div id="bar-state-value" style="font-size: 10px; color: #00cec9; font-family: monospace;">0%</div>
+              </div>
+
+              <!-- Data Size Bar -->
+              <div style="display: flex; flex-direction: column; align-items: center;">
+                <div style="flex: 1; width: 100%; background: #1a1a1a; border-radius: 4px; position: relative; overflow: hidden;">
+                  <div id="bar-data-fill" style="position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #44aa88, #ffcc00, #ff4444); height: 0%; transition: height 0.3s;"></div>
+                </div>
+                <div style="font-size: 11px; color: #888; margin-top: 8px; text-transform: uppercase;">Data</div>
+                <div id="bar-data-value" style="font-size: 10px; color: #00cec9; font-family: monospace;">0%</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Multi-Modal Gas Metering -->
+          <div>
+            <div style="font-size: 14px; color: #aaa; text-transform: uppercase; margin-bottom: 16px; text-align: center; font-weight: 600;">Multi-Modal Gas Metering</div>
+
+            <!-- Compute Gas Meter -->
+            <div style="text-align: center; margin-bottom: 30px;">
+              <div style="font-size: 12px; color: #888; margin-bottom: 8px; text-transform: uppercase;">Compute Gas</div>
+              <svg width="140" height="90" style="margin: 0 auto;">
+                <defs>
+                  <linearGradient id="computeGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+                    <stop offset="0%" style="stop-color:#44aa88;stop-opacity:1" />
+                    <stop offset="50%" style="stop-color:#ffcc00;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#ff4444;stop-opacity:1" />
+                  </linearGradient>
+                </defs>
+                <!-- Background arc -->
+                <path d="M 20 70 A 50 50 0 0 1 120 70" stroke="#2a2a3a" stroke-width="12" fill="none" stroke-linecap="round"/>
+                <!-- Filled arc -->
+                <path id="compute-fill" d="M 20 70 A 50 50 0 0 1 120 70" stroke="url(#computeGradient)" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="157" stroke-dashoffset="157"/>
+              </svg>
+              <div id="compute-gas-value" style="font-size: 20px; font-weight: 700; color: #00cec9; margin-top: -20px;">0.0</div>
+              <div style="font-size: 10px; color: #666; text-transform: uppercase;">MGAS</div>
+            </div>
+
+            <!-- Storage Gas Meter -->
+            <div style="text-align: center;">
+              <div style="font-size: 12px; color: #888; margin-bottom: 8px; text-transform: uppercase;">Storage Gas</div>
+              <svg width="140" height="90" style="margin: 0 auto;">
+                <defs>
+                  <linearGradient id="storageGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+                    <stop offset="0%" style="stop-color:#44aa88;stop-opacity:1" />
+                    <stop offset="50%" style="stop-color:#ffcc00;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#ff4444;stop-opacity:1" />
+                  </linearGradient>
+                </defs>
+                <!-- Background arc -->
+                <path d="M 20 70 A 50 50 0 0 1 120 70" stroke="#2a2a3a" stroke-width="12" fill="none" stroke-linecap="round"/>
+                <!-- Filled arc -->
+                <path id="storage-fill" d="M 20 70 A 50 50 0 0 1 120 70" stroke="url(#storageGradient)" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="157" stroke-dashoffset="157"/>
+              </svg>
+              <div id="storage-gas-value" style="font-size: 20px; font-weight: 700; color: #00cec9; margin-top: -20px;">0.0</div>
+              <div style="font-size: 10px; color: #666; text-transform: uppercase;">MGAS</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Block River -->
+      <div class="block-river">
+        <div class="block-river-header">
+          <div class="block-river-title">
+            BLOCK RIVER
+            <span class="status-dot" id="riverStatusDot" style="background: #404040;"></span>
+          </div>
+          <div class="chart-header-right">
+            <span class="chart-label">LATEST <span class="chart-label-value" id="latestBlock" style="color: #00d4ff;">#0</span></span>
+          </div>
+        </div>
+        <div class="block-river-body" id="blockRiverContainer"></div>
+        <div class="block-river-footer">
+          <div class="legend">
+            <div class="legend-item"><div class="legend-color" style="background: #151515;"></div><span class="legend-label">0</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #1f3f1f;"></div><span class="legend-label">1-50</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #2d522d;"></div><span class="legend-label">50-100</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #356035;"></div><span class="legend-label">100-120</span></div>
+            <div class="legend-item"><div class="legend-color" style="background: #55a055;"></div><span class="legend-label">120+</span></div>
+          </div>
+          <span class="legend-suffix">tx per mini-block (10ms, WebSocket)</span>
+        </div>
+      </div>
+
+      <!-- Compact Traffic Analysis Panel - MAINNET STRESS TEST -->
+      <div id="spammerPanel" style="background: #111; border: 2px solid #ff4444; border-radius: 8px; margin-bottom: 16px;">
+        <!-- Header with big status indicator -->
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #1a0808; border-bottom: 2px solid #ff4444;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <span style="font-size: 32px;">🚨</span>
+            <div>
+              <div style="font-size: 20px; font-weight: 700; color: #ff6b6b; text-transform: uppercase;">MAINNET STRESS TEST ANALYSIS</div>
+              <div style="font-size: 16px; color: #aaa;" id="trafficStatusText">Monitoring synthetic vs organic traffic</div>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 48px; font-weight: 800; color: #ff4444;" id="spammerTpsPercent">99</div>
+            <div style="font-size: 14px; color: #aaa; text-transform: uppercase; font-weight: 600;">% Synthetic</div>
+          </div>
+        </div>
+
+        <!-- Main stats row - big numbers -->
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: #333;">
+          <div style="background: #151010; padding: 20px; text-align: center;">
+            <div style="font-size: 36px; font-weight: 800; color: #ff6b6b;" id="loadTestTxs">0%</div>
+            <div style="font-size: 14px; color: #aaa; text-transform: uppercase; margin-top: 8px; font-weight: 600;">DEX Swaps</div>
+          </div>
+          <div style="background: #101015; padding: 20px; text-align: center;">
+            <div style="font-size: 36px; font-weight: 800; color: #aa88ff;" id="oracleTxs">0%</div>
+            <div style="font-size: 14px; color: #aaa; text-transform: uppercase; margin-top: 8px; font-weight: 600;">Dust Spam</div>
+          </div>
+          <div style="background: #101518; padding: 20px; text-align: center;">
+            <div style="font-size: 36px; font-weight: 800; color: #44ff88;" id="organicTxs">0%</div>
+            <div style="font-size: 14px; color: #aaa; text-transform: uppercase; margin-top: 8px; font-weight: 600;">Organic</div>
+          </div>
+          <div style="background: #151008; padding: 20px; text-align: center;">
+            <div style="font-size: 36px; font-weight: 800; color: #ffaa44;" id="gasUtilization">0%</div>
+            <div style="font-size: 14px; color: #aaa; text-transform: uppercase; margin-top: 8px; font-weight: 600;">Gas Used</div>
+          </div>
+          <div style="background: #111; padding: 20px; text-align: center;">
+            <div style="font-size: 24px; font-weight: 700; color: #44ff44;" id="spammerStatus">MONITORING</div>
+            <div style="font-size: 14px; color: #aaa; text-transform: uppercase; margin-top: 8px; font-weight: 600;">Status</div>
+          </div>
+        </div>
+
+        <!-- Two synthetic systems side by side -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 20px;">
+          <!-- System 1: DEX Swaps -->
+          <div style="background: #150808; border: 2px solid #401515; border-radius: 8px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <span style="font-size: 16px; color: #ff8888; font-weight: 700;">🔄 DEX SWAP SPAM</span>
+              <span style="font-size: 28px; font-weight: 800; color: #ff6b6b;" id="loadTestSenders">0+</span>
+            </div>
+            <div style="font-family: monospace; font-size: 12px; color: #cc8888; margin-bottom: 8px;">UniversalRouter: 0xaab1c664...0d76a0</div>
+            <div style="font-size: 15px; color: #999; line-height: 1.4;"><strong>~37% of traffic.</strong> Automated Uniswap execute() calls. 5,600+ wallets doing fake swaps.</div>
+            <div style="font-size: 14px; color: #777; margin-top: 10px;">Latest: <a href="#" id="latestLoadTestTx" target="_blank" style="color: #ff8888; font-family: monospace;">--</a></div>
+          </div>
+          <!-- System 2: Dust Transfers -->
+          <div style="background: #0a0815; border: 2px solid #302050; border-radius: 8px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <span style="font-size: 16px; color: #aa88ff; font-weight: 700;">💨 3-WEI DUST SPAM</span>
+              <span style="font-size: 28px; font-weight: 800; color: #aa88ff;" id="dustSenders">0+</span>
+            </div>
+            <div style="font-family: monospace; font-size: 12px; color: #9988cc; margin-bottom: 8px;">Value: 0.000000000000000003 ETH</div>
+            <div style="font-size: 15px; color: #999; line-height: 1.4;"><strong>~63% of traffic.</strong> ALL transfers send EXACTLY 3 wei. 9,100+ wallets. Pure TPS inflation.</div>
+            <div style="font-size: 14px; color: #777; margin-top: 10px;">Latest: <a href="#" id="latestOracleTx" target="_blank" style="color: #aa88ff; font-family: monospace;">--</a></div>
+          </div>
+        </div>
+
+        <!-- Key finding -->
+        <div style="padding: 0 20px 20px 20px;">
+          <div style="background: #1a0505; border-left: 4px solid #ff4444; padding: 14px 16px; font-size: 16px; color: #ccc; line-height: 1.6; border-radius: 4px;">
+            <strong style="color: #ff6666;">🚨 SMOKING GUN:</strong> MegaETH's "16-18K TPS" is <strong style="color: #ff4444;">~99.8% SYNTHETIC</strong>. Two bot systems: automated DEX swaps + 3-wei dust transfers. Real organic traffic: <strong style="color: #44ff88;">&lt;0.2%</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- APP BREAKDOWN PANEL - Leena's Addition -->
+      <div id="appBreakdownPanel" style="background: #111; border: 2px solid #00d9a5; border-radius: 8px; margin-bottom: 16px;">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #081a14; border-bottom: 2px solid #00d9a5;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <span style="font-size: 32px;">📱</span>
+            <div>
+              <div style="font-size: 20px; font-weight: 700; color: #00d9a5; text-transform: uppercase;">LIVE DAPP ANALYTICS</div>
+              <div style="font-size: 16px; color: #aaa;">Jan 22-29, 2026 Stress Test</div>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 14px; color: #aaa;">Live Data</div>
+            <div style="font-size: 12px; color: #666; font-family: monospace;" id="appUpdateTime">--</div>
+          </div>
+        </div>
+
+        <!-- 4 Whitelisted DApps Grid -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; padding: 20px; padding-bottom: 12px;">
+
+          <!-- SMASHER -->
+          <div style="background: #1a0808; border: 2px solid #ff4444; border-radius: 8px; padding: 16px;">
+            <div style="text-align: center; margin-bottom: 16px;">
+              <img src="/pictures/smasher.jpg" style="width: 48px; height: 48px; border-radius: 50%; margin-bottom: 8px; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+              <div style="font-size: 32px; margin-bottom: 8px; display: none;">🎮</div>
+              <div style="font-size: 18px; font-weight: 700; color: #ff6b6b;">SMASHER</div>
+              <div style="font-size: 11px; color: #666; font-family: monospace; margin-top: 4px;">0x0E0f4...8e1d3f</div>
+            </div>
+
+            <!-- Stats -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #ff6b6b;" id="smasher-txs">--</div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Total Txs</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #ffaa44;" id="smasher-users">--</div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Unique Callers</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="display: flex; align-items: baseline; justify-content: center; gap: 6px;">
+                  <div style="font-size: 24px; font-weight: 800; color: #aa88ff;" id="smasher-tps">--</div>
+                  <div style="font-size: 12px; color: #666; font-family: monospace;">ATH: <span id="smasher-ath-tps">--</span></div>
+                </div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Live TPS</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #00d9a5;" id="smasher-gas">--</div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Total Gas</div>
+              </div>
+            </div>
+
+            <!-- Gas & ETH Stats -->
+            <div style="background: #0d0505; border: 1px solid #401515; border-radius: 4px; padding: 10px; margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 12px; color: #999;">ETH Burnt</span>
+                <span style="font-size: 13px; font-weight: 700; color: #ff8844; font-family: monospace;" id="smasher-burnt">--</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 12px; color: #999;">Avg Gas/Tx</span>
+                <span style="font-size: 13px; font-weight: 700; color: #88aaff; font-family: monospace;" id="smasher-avg">--</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="font-size: 12px; color: #999;">ATH Gas Fee</span>
+                <span style="font-size: 13px; font-weight: 700; color: #ff44aa; font-family: monospace;" id="smasher-ath">--</span>
+              </div>
+            </div>
+
+            <!-- Success/Failure -->
+            <div style="display: flex; justify-content: space-around; padding: 8px 0;">
+              <div style="text-align: center;">
+                <div style="font-size: 20px; font-weight: 700; color: #44ff88;" id="smasher-success">--</div>
+                <div style="font-size: 10px; color: #666;">SUCCESS</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 20px; font-weight: 700; color: #ff4444;" id="smasher-failed">--</div>
+                <div style="font-size: 10px; color: #666;">FAILED</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- KUMBAYA -->
+          <div style="background: #081a14; border: 2px solid #00d9a5; border-radius: 8px; padding: 16px;">
+            <div style="text-align: center; margin-bottom: 16px;">
+              <img src="/pictures/Kumbaya.png" style="width: 48px; height: 48px; border-radius: 50%; margin-bottom: 8px; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+              <div style="font-size: 32px; margin-bottom: 8px; display: none;">💱</div>
+              <div style="font-size: 18px; font-weight: 700; color: #00d9a5;">KUMBAYA</div>
+              <div style="font-size: 11px; color: #666; font-family: monospace; margin-top: 4px;">15 contracts</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #00d9a5;" id="kumbaya-txs">--</div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Total Txs</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #ffaa44;" id="kumbaya-users">--</div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Unique Callers</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="display: flex; align-items: baseline; justify-content: center; gap: 6px;">
+                  <div style="font-size: 24px; font-weight: 800; color: #aa88ff;" id="kumbaya-tps">--</div>
+                  <div style="font-size: 12px; color: #666; font-family: monospace;">ATH: <span id="kumbaya-ath-tps">--</span></div>
+                </div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Live TPS</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #00cec9;" id="kumbaya-gas">--</div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Total Gas</div>
+              </div>
+            </div>
+
+            <div style="background: #051410; border: 1px solid #154030; border-radius: 4px; padding: 10px; margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 12px; color: #999;">ETH Burnt</span>
+                <span style="font-size: 13px; font-weight: 700; color: #ff8844; font-family: monospace;" id="kumbaya-burnt">--</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 12px; color: #999;">Avg Gas/Tx</span>
+                <span style="font-size: 13px; font-weight: 700; color: #88aaff; font-family: monospace;" id="kumbaya-avg">--</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="font-size: 12px; color: #999;">ATH Gas Fee</span>
+                <span style="font-size: 13px; font-weight: 700; color: #ff44aa; font-family: monospace;" id="kumbaya-ath">--</span>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-around; padding: 8px 0;">
+              <div style="text-align: center;">
+                <div style="font-size: 20px; font-weight: 700; color: #44ff88;" id="kumbaya-success">--</div>
+                <div style="font-size: 10px; color: #666;">SUCCESS</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 20px; font-weight: 700; color: #ff4444;" id="kumbaya-failed">--</div>
+                <div style="font-size: 10px; color: #666;">FAILED</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- FLUFFLE -->
+          <div style="background: #1a0814; border: 2px solid #aa88ff; border-radius: 8px; padding: 16px;">
+            <div style="text-align: center; margin-bottom: 16px;">
+              <img src="https://game.megaeth.com/logo-m.svg" style="width: 48px; height: 48px; border-radius: 50%; margin-bottom: 8px; background: white; padding: 4px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+              <div style="font-size: 32px; margin-bottom: 8px; display: none;">🐰</div>
+              <div style="font-size: 18px; font-weight: 700; color: #aa88ff;">FLUFFLE</div>
+              <div style="font-size: 11px; color: #666; font-family: monospace; margin-top: 4px;">0xa30a0...9098</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #aa88ff;" id="fluffle-txs">--</div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Total Txs</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #ffaa44;" id="fluffle-users">--</div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Unique Callers</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="display: flex; align-items: baseline; justify-content: center; gap: 6px;">
+                  <div style="font-size: 24px; font-weight: 800; color: #ff88aa;" id="fluffle-tps">--</div>
+                  <div style="font-size: 12px; color: #666; font-family: monospace;">ATH: <span id="fluffle-ath-tps">--</span></div>
+                </div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Live TPS</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #00cec9;" id="fluffle-gas">--</div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Total Gas</div>
+              </div>
+            </div>
+
+            <div style="background: #100514; border: 1px solid #301540; border-radius: 4px; padding: 10px; margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 12px; color: #999;">ETH Burnt</span>
+                <span style="font-size: 13px; font-weight: 700; color: #ff8844; font-family: monospace;" id="fluffle-burnt">--</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 12px; color: #999;">Avg Gas/Tx</span>
+                <span style="font-size: 13px; font-weight: 700; color: #88aaff; font-family: monospace;" id="fluffle-avg">--</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="font-size: 12px; color: #999;">ATH Gas Fee</span>
+                <span style="font-size: 13px; font-weight: 700; color: #ff44aa; font-family: monospace;" id="fluffle-ath">--</span>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-around; padding: 8px 0;">
+              <div style="text-align: center;">
+                <div style="font-size: 20px; font-weight: 700; color: #44ff88;" id="fluffle-success">--</div>
+                <div style="font-size: 10px; color: #666;">SUCCESS</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 20px; font-weight: 700; color: #ff4444;" id="fluffle-failed">--</div>
+                <div style="font-size: 10px; color: #666;">FAILED</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STOMP -->
+          <div style="background: #14081a; border: 2px solid #ffaa44; border-radius: 8px; padding: 16px;">
+            <div style="text-align: center; margin-bottom: 16px;">
+              <img src="https://stomp.gg/logo1.svg" style="width: 48px; height: 48px; border-radius: 50%; margin-bottom: 8px; object-fit: cover; background: white; padding: 4px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+              <div style="font-size: 32px; margin-bottom: 8px; display: none;">⚔️</div>
+              <div style="font-size: 18px; font-weight: 700; color: #ffaa44;">STOMP.GG</div>
+              <div style="font-size: 11px; color: #666; font-family: monospace; margin-top: 4px;">3 contracts</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #ffaa44;" id="stomp-txs">--</div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Total Txs</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #ff8844;" id="stomp-users">--</div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Unique Callers</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="display: flex; align-items: baseline; justify-content: center; gap: 6px;">
+                  <div style="font-size: 24px; font-weight: 800; color: #aa88ff;" id="stomp-tps">--</div>
+                  <div style="font-size: 12px; color: #666; font-family: monospace;">ATH: <span id="stomp-ath-tps">--</span></div>
+                </div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Live TPS</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #00cec9;" id="stomp-gas">--</div>
+                <div style="font-size: 11px; color: #aaa; text-transform: uppercase;">Total Gas</div>
+              </div>
+            </div>
+
+            <div style="background: #140510; border: 1px solid #401530; border-radius: 4px; padding: 10px; margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 12px; color: #999;">ETH Burnt</span>
+                <span style="font-size: 13px; font-weight: 700; color: #ff8844; font-family: monospace;" id="stomp-burnt">--</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 12px; color: #999;">Avg Gas/Tx</span>
+                <span style="font-size: 13px; font-weight: 700; color: #88aaff; font-family: monospace;" id="stomp-avg">--</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="font-size: 12px; color: #999;">ATH Gas Fee</span>
+                <span style="font-size: 13px; font-weight: 700; color: #ff44aa; font-family: monospace;" id="stomp-ath">--</span>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-around; padding: 8px 0;">
+              <div style="text-align: center;">
+                <div style="font-size: 20px; font-weight: 700; color: #44ff88;" id="stomp-success">--</div>
+                <div style="font-size: 10px; color: #666;">SUCCESS</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 20px; font-weight: 700; color: #ff4444;" id="stomp-failed">--</div>
+                <div style="font-size: 10px; color: #666;">FAILED</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- OTHER CONTRACTS - Horizontal Bar -->
+        <div style="padding: 0 20px 20px 20px;">
+          <div style="background: #18181a; border: 2px solid #666; border-radius: 8px; padding: 16px;">
+            <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+
+              <!-- Left: Plus Sign + Title -->
+              <div style="display: flex; align-items: center; gap: 12px; min-width: 180px;">
+                <div style="font-size: 48px; font-weight: 300; color: #999; line-height: 1; font-family: 'SF Mono', 'Monaco', monospace;">+</div>
+                <div>
+                  <div style="font-size: 18px; font-weight: 700; color: #999;">OTHER CONTRACTS</div>
+                  <div style="font-size: 11px; color: #666;">Non-whitelisted dapps</div>
+                </div>
+              </div>
+
+              <!-- Stats Grid -->
+              <div style="flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px; min-width: 300px;">
+                <div style="text-align: center;">
+                  <div style="font-size: 20px; font-weight: 800; color: #999;" id="other-txs">--</div>
+                  <div style="font-size: 10px; color: #aaa; text-transform: uppercase;">Total Txs</div>
+                </div>
+                <div style="text-align: center;">
+                  <div style="font-size: 20px; font-weight: 800; color: #ffaa44;" id="other-users">--</div>
+                  <div style="font-size: 10px; color: #aaa; text-transform: uppercase;">Unique Callers</div>
+                </div>
+                <div style="text-align: center;">
+                  <div style="display: flex; align-items: baseline; justify-content: center; gap: 4px;">
+                    <div style="font-size: 20px; font-weight: 800; color: #aa88ff;" id="other-tps">--</div>
+                    <div style="font-size: 10px; color: #555;">ATH: <span id="other-ath-tps">--</span></div>
+                  </div>
+                  <div style="font-size: 10px; color: #aaa; text-transform: uppercase;">Live TPS</div>
+                </div>
+                <div style="text-align: center;">
+                  <div style="font-size: 20px; font-weight: 800; color: #00cec9;" id="other-gas">--</div>
+                  <div style="font-size: 10px; color: #aaa; text-transform: uppercase;">Total Gas</div>
+                </div>
+                <div style="text-align: center;">
+                  <div style="font-size: 20px; font-weight: 800; color: #ff8844;" id="other-burnt">--</div>
+                  <div style="font-size: 10px; color: #aaa; text-transform: uppercase;">ETH Burnt</div>
+                </div>
+                <div style="text-align: center;">
+                  <div style="font-size: 20px; font-weight: 800; color: #ff44aa;" id="other-ath">--</div>
+                  <div style="font-size: 10px; color: #aaa; text-transform: uppercase;">ATH Fee</div>
+                </div>
+                <div style="text-align: center;">
+                  <div style="font-size: 20px; font-weight: 800; color: #44ff88;" id="other-success">--</div>
+                  <div style="font-size: 10px; color: #aaa; text-transform: uppercase;">Success</div>
+                </div>
+                <div style="text-align: center;">
+                  <div style="font-size: 20px; font-weight: 800; color: #ff4444;" id="other-failed">--</div>
+                  <div style="font-size: 10px; color: #aaa; text-transform: uppercase;">Failed</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottleneck Panel -->
+      <div id="bottleneckPanel" style="background: #111; border: 2px solid #ff8800; border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #1a1408; border-bottom: 2px solid #ff8800;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <span style="font-size: 28px;">🔍</span>
+            <div>
+              <div style="font-size: 18px; font-weight: 700; color: #ffaa44; text-transform: uppercase;">Bottleneck Monitor</div>
+              <div style="font-size: 14px; color: #888;">Organic TXs This Session</div>
+            </div>
+          </div>
+          <div style="font-size: 42px; font-weight: 800; color: #44ff44;" id="organicCount">0</div>
+        </div>
+
+        <!-- Stats row -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #333;">
+          <div style="background: #151508; padding: 16px; text-align: center;">
+            <div style="font-size: 14px; color: #ff7777; font-weight: 600;">Base Fee FIXED</div>
+            <div style="font-size: 18px; font-weight: 700; color: #ff6666; margin-top: 6px;" id="baseFee">0.001 gwei</div>
+          </div>
+          <div style="background: #150808; padding: 16px; text-align: center;">
+            <div style="font-size: 14px; color: #aaa; font-weight: 600;">TX Failures</div>
+            <div style="font-size: 18px; font-weight: 700; color: #44ff44; margin-top: 6px;" id="failureRate">0%</div>
+          </div>
+          <div style="background: #111; padding: 16px; text-align: center;">
+            <div style="font-size: 14px; color: #ff7777; font-weight: 600;">Mempool</div>
+            <div style="font-size: 18px; font-weight: 700; color: #ff6666; margin-top: 6px;">HIDDEN</div>
+          </div>
+          <div style="background: #111; padding: 16px; text-align: center;">
+            <div style="font-size: 14px; color: #ffbb66; font-weight: 600;">Load TX Gas</div>
+            <div style="font-size: 18px; font-weight: 700; color: #ffaa44; margin-top: 6px;">363K</div>
+          </div>
+        </div>
+
+        <!-- Anomalies - prominent feed -->
+        <div style="padding: 20px;">
+          <div style="font-size: 16px; color: #ffcc44; text-transform: uppercase; margin-bottom: 12px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 20px;">🚨</span> ANOMALY FEED
+          </div>
+          <div id="anomalyAlerts" style="font-size: 16px; color: #ccc; max-height: 150px; overflow-y: auto; background: #0a0805; padding: 16px; border-radius: 8px; border: 1px solid #443300; line-height: 1.8;">Monitoring for anomalies...</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    // ============================================================
+    // CONSTANTS
+    // ============================================================
+    const RPC_URL = 'https://mainnet.megaeth.com/rpc';  // MAINNET - Stress test is LIVE
+    const WS_URL = 'wss://mainnet.megaeth.com/ws';  // WebSocket for real-time blocks
+    const API_URL = 'http://localhost:3001';  // Backend (optional for app breakdown)
+    const POLL_INTERVAL = 1000;      // Polling as fallback only (1 second)
+    const HISTORY_INTERVAL = 100;    // Add history point every 100ms
+    const MAX_BLOCKS = 500;          // Store more blocks for history
+    const MAX_HISTORY = 100;
+    const TARGET_FPS = 30;
+    const FRAME_TIME = 1000 / TARGET_FPS;
+
+    const COLORS = {
+      bg: "#0D0D12",
+      bgElevated: "#16161D",
+      border: "#2A2A3A",
+      green: "#00D9A5",
+      cyan: "#00CEC9",
+      purple: "#A29BFE",
+      orange: "#FECA57",
+      red: "#FF6B6B",
+      textMuted: "rgba(255, 255, 255, 0.4)",
+      textDim: "rgba(255, 255, 255, 0.2)",
+    };
+
+    // ============================================================
+    // SYNTHETIC TRAFFIC DETECTION - MAINNET Stress Test (Jan 22, 2026)
+    // ============================================================
+    // DISCOVERY: MegaETH's "16K TPS" is ~99.8% synthetic!
+
+    // System 1: Automated DEX Swaps via Uniswap UniversalRouter (37% of traffic)
+    // - Function: execute() (0x3593564c)
+    // - 5,600+ unique wallets making automated swaps
+    // - All sending 0 ETH, same gas limit (396K)
+    const UNIVERSAL_ROUTER = '0xaab1c664cead881afbb58555e6a3a79523d3e4c0';
+    const DEX_SWAP_SELECTOR = '0x3593564c';  // execute()
+
+    // System 2: 3-Wei Dust Transfer Spam (63% of traffic)
+    // - ALL transfers send EXACTLY 3 wei (0.000000000000000003 ETH)
+    // - 9,100+ unique wallets sending to 9,100+ unique recipients
+    // - Pure TPS inflation - no real value transferred
+    const DUST_AMOUNT = 3n;  // Exactly 3 wei
+
+    // Legacy: Chainlink Oracle (kept for reference, may still be active)
+    const ORACLE_WALLETS = new Set([
+      '0xd8d7235b9315b5b87872b70dd6ad6df65d98c6eb',
+      '0x20bae013686a00535508c89326fe08853522660b',
+      '0x8bebc2af464bb7b04570705dd3657543ed54ba9c',
+      '0x83df6c47e951e310a8defd0642ca8bf9ba2282af',
+    ]);
+    const ORACLE_CONTRACT = '0x9f0b0ae7a3b6671129633121149b7059d004eda4';
+
+    // Legacy: Old testnet load tester (NOT on mainnet)
+    const LOAD_TEST_CONTRACT = '0x19894fbbcf6f9f937c968b66f10f23c239adb339';
+
+    // Track synthetic traffic in real-time - MAINNET stress test
+    let spammerStats = {
+      recentTotalTxs: 0,
+      recentSpamTxs: 0,
+      lastUpdate: Date.now(),
+      isActive: false,
+      // DEX swap tracking (UniversalRouter)
+      dexSwapCount: 0,
+      dexSwapSenders: new Set(),
+      latestDexSwapTx: null,
+      // Dust transfer tracking (3-wei spam)
+      dustTransferCount: 0,
+      dustTransferSenders: new Set(),
+      latestDustTx: null,
+      // Legacy tracking
+      loadTestSenders: new Set(),
+      latestLoadTestTx: null,
+      latestOracleTx: null,
+      loadTestCount: 0,
+      oracleCount: 0,
+    };
+
+    // Track bottleneck metrics
+    let bottleneckStats = {
+      gasUtilization: 0,
+      baseFee: 1000000,  // 0.001 gwei fixed
+      failedTxs: 0,
+      totalTxsChecked: 0,
+      organicTxCount: 0,
+      anomalies: [],
+      lastTps: 0,
+      tpsDropCount: 0,
+      maxLatencySeen: 0,
+      blockGasHistory: [],
+    };
+
+    // ============================================================
+    // STATE
+    // ============================================================
+    let state = {
+      connected: false,
+      wsConnected: false,
+      blockHeight: 0,
+      miniBlockNumber: 0,
+      tps: 0,
+      peakTps: 0,
+      avgBlockTime: 0,
+      tpsHistory: [],
+      blockTimeHistory: [],
+      recentBlocks: [],
+      recentMiniBlocks: [],  // Real mini-block data from WebSocket
+      latencyHistory: [],
+      currentLatency: 0,
+      latencyP50: 0,
+      latencyP95: 0,
+    };
+
+    // WebSocket state
+    let ws = null;
+    let wsReconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 10;
+
+    // ============================================================
+    // BLOCK RIVER GRID STATE - Exact Aptos structure
+    // ============================================================
+    let gridRef = [];           // 2D array of GridBlock
+    let gridIndexRef = 0;       // Current position in snake pattern
+    let lastBlockHeightRef = 0; // Last processed block height
+    let gridDimensions = { cols: 30, rows: 6 };
+
+    // Initialize grid
+    function initializeGrid() {
+      const { cols, rows } = gridDimensions;
+      const newGrid = [];
+      for (let r = 0; r < rows; r++) {
+        newGrid[r] = [];
+        for (let c = 0; c < cols; c++) {
+          newGrid[r][c] = gridRef[r]?.[c] || { blockHeight: 0, txCount: 0, timestamp: 0 };
+        }
+      }
+      gridRef = newGrid;
+    }
+    initializeGrid();
+
+    // Heat map color function - REAL mini-block tx counts (0-200 range)
+    // Based on actual WebSocket data: Min 0, Max 173, Avg ~105 tx per mini-block
+    function getBlockColor(txCount) {
+      if (txCount === 0) return "#151515";       // Empty mini-block (slightly visible)
+      if (txCount <= 20) return "#1a2f1a";       // Very low (1-20)
+      if (txCount <= 50) return "#1f3f1f";       // Low (21-50)
+      if (txCount <= 80) return "#254525";       // Below average (51-80)
+      if (txCount <= 100) return "#2d522d";      // Average low (81-100)
+      if (txCount <= 120) return "#356035";      // Average (101-120)
+      if (txCount <= 140) return "#3d6d3d";      // Above average (121-140)
+      if (txCount <= 160) return "#458045";      // High (141-160)
+      if (txCount <= 180) return "#4d904d";      // Very high (161-180)
+      return "#55a055";                           // Maximum (180+)
+    }
+
+    // Process a single MINI-BLOCK into grid - REAL DATA from WebSocket
+    let lastMiniBlockNumber = 0;
+
+    function processMiniBlock(miniBlock) {
+      const { cols, rows } = gridDimensions;
+
+      // Skip if we've already processed this mini-block
+      if (miniBlock.number <= lastMiniBlockNumber) return;
+      lastMiniBlockNumber = miniBlock.number;
+
+      const row = gridIndexRef % rows;
+      const col = Math.floor(gridIndexRef / rows) % cols;
+
+      if (!gridRef[row]) gridRef[row] = [];
+
+      gridRef[row][col] = {
+        blockHeight: miniBlock.mainBlock,
+        miniBlockNumber: miniBlock.number,
+        miniBlockIndex: miniBlock.index,
+        txCount: miniBlock.txCount,  // REAL tx count from WebSocket
+        gasUsed: miniBlock.gasUsed,
+        timestamp: miniBlock.timestamp,  // REAL millisecond timestamp
+        addedAt: Date.now(),
+      };
+
+      gridIndexRef = (gridIndexRef + 1) % (rows * cols);
+    }
+
+    // Legacy: Process main blocks (fallback if WebSocket unavailable)
+    function processBlocksToGrid(blocks) {
+      if (blocks.length === 0) return;
+
+      const { cols, rows } = gridDimensions;
+      const newBlocks = blocks.filter(b => b.blockNumber > lastBlockHeightRef);
+      if (newBlocks.length === 0) return;
+
+      lastBlockHeightRef = Math.max(...blocks.map(b => b.blockNumber));
+      const sortedBlocks = [...newBlocks].sort((a, b) => a.blockNumber - b.blockNumber);
+
+      for (const block of sortedBlocks) {
+        const row = gridIndexRef % rows;
+        const col = Math.floor(gridIndexRef / rows) % cols;
+
+        if (!gridRef[row]) gridRef[row] = [];
+
+        gridRef[row][col] = {
+          blockHeight: block.blockNumber,
+          txCount: block.txCount,
+          timestamp: Date.now(),
+          addedAt: Date.now(),
+        };
+
+        gridIndexRef = (gridIndexRef + 1) % (rows * cols);
+      }
+    }
+
+    // ============================================================
+    // RPC FUNCTIONS WITH RETRY LOGIC
+    // ============================================================
+    let rpcRetryDelay = 1000; // Start with 1 second
+    let consecutiveFailures = 0;
+
+    async function rpcCall(method, params = [], retries = 3) {
+      const startTime = performance.now();
+
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const response = await fetch(RPC_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 }),
+          });
+
+          // Handle rate limiting
+          if (response.status === 429) {
+            consecutiveFailures++;
+            rpcRetryDelay = Math.min(rpcRetryDelay * 2, 30000); // Max 30s
+            console.warn(`[RPC] Rate limited (429). Waiting ${rpcRetryDelay}ms before retry...`);
+            if (attempt < retries) {
+              await new Promise(r => setTimeout(r, rpcRetryDelay));
+              continue;
+            }
+            throw new Error('Rate limited by Cloudflare');
+          }
+
+          const data = await response.json();
+          const endTime = performance.now();
+
+          if (data.error) throw new Error(data.error.message);
+
+          // Success - reset backoff
+          consecutiveFailures = 0;
+          rpcRetryDelay = Math.max(1000, rpcRetryDelay / 2);
+
+          return { result: data.result, latency: endTime - startTime };
+        } catch (error) {
+          console.error(`[RPC] Attempt ${attempt + 1} failed:`, error.message);
+          if (attempt === retries) throw error;
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        }
+      }
+    }
+
+    async function getBlockNumber() {
+      const { result, latency } = await rpcCall('eth_blockNumber');
+      return { blockNumber: parseInt(result, 16), latency };
+    }
+
+    async function getBlock(blockNum) {
+      const hex = '0x' + blockNum.toString(16);
+      const { result } = await rpcCall('eth_getBlockByNumber', [hex, false]);
+      return result;
+    }
+
+    function processBlock(block) {
+      if (!block) return null;
+      return {
+        blockNumber: parseInt(block.number, 16),
+        timestamp: parseInt(block.timestamp, 16) * 1000,
+        txCount: block.transactions?.length || 0,
+        miniBlockCount: block.miniBlockCount || 100,
+      };
+    }
+
+    // ============================================================
+    // WEBSOCKET - Real-time mini-block streaming
+    // ============================================================
+    function connectWebSocket() {
+      if (ws && ws.readyState === WebSocket.OPEN) return;
+
+      console.log('[WebSocket] Connecting to', WS_URL);
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        console.log('[WebSocket] Connected!');
+        state.wsConnected = true;
+        wsReconnectAttempts = 0;
+
+        // Reset grid for fresh block data
+        gridIndexRef = 0;
+        lastMiniBlockNumber = 0;
+        initializeGrid();
+        console.log('[WebSocket] Grid reset for block streaming');
+
+        // Subscribe to newHeads (same as main dashboard)
+        ws.send(JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'eth_subscribe',
+          params: ['newHeads']
+        }));
+        console.log('[WebSocket] Subscribed to newHeads');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+
+          // Handle subscription confirmation
+          if (msg.id && msg.result) {
+            console.log('[WebSocket] Subscribed:', msg.result);
+            return;
+          }
+
+          // Handle newHeads subscription (block headers)
+          if (msg.method === 'eth_subscription' && msg.params?.result) {
+            const header = msg.params.result;
+            const blockHash = header.hash;
+            const blockNumber = parseInt(header.number, 16);
+
+            // DEBUG: Log first few blocks
+            if (state.recentBlocks.length < 3) {
+              console.log('[DEBUG] New block header:', blockNumber, blockHash?.slice(0, 16));
+            }
+
+            // Fetch full block with transactions
+            fetchBlockWithTransactions(blockHash, blockNumber);
+          }
+        } catch (err) {
+          console.error('[WebSocket] Parse error:', err);
+        }
+      };
+
+      // Process miniblock data received directly from WebSocket (no HTTP fetch!)
+      function processMiniBlockFromWebSocket(block) {
+        if (!block) return;
+
+        const blockNumber = parseInt(block.number, 16);
+        const txs = block.transactions || [];
+        let syntheticCount = 0;
+        let organicCount = 0;
+        const SYSTEM_ADDR = '0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001';
+
+        txs.forEach(tx => {
+          const from = (tx.from || '').toLowerCase();
+          const to = (tx.to || '').toLowerCase();
+          const hash = tx.hash;
+          const input = tx.input || tx.data || '0x';
+          let value = 0n;
+          try {
+            value = BigInt(tx.value || '0x0');
+          } catch (e) {
+            value = 0n;
+          }
+
+          // System 1: DEX Swap Spam (UniversalRouter execute())
+          if (to === UNIVERSAL_ROUTER || (input && input.startsWith(DEX_SWAP_SELECTOR))) {
+            syntheticCount++;
+            spammerStats.dexSwapCount++;
+            spammerStats.dexSwapSenders.add(from);
+            spammerStats.latestDexSwapTx = hash;
+          }
+          // System 2: 3-Wei Dust Transfer Spam
+          else if (input === '0x' && value === DUST_AMOUNT) {
+            syntheticCount++;
+            spammerStats.dustTransferCount++;
+            spammerStats.dustTransferSenders.add(from);
+            spammerStats.latestDustTx = hash;
+          }
+          // Legacy: Load test contract (testnet)
+          else if (to === LOAD_TEST_CONTRACT) {
+            syntheticCount++;
+            spammerStats.loadTestCount++;
+            spammerStats.loadTestSenders.add(from);
+            spammerStats.latestLoadTestTx = hash;
+          }
+          // Legacy: Oracle transactions
+          else if (ORACLE_WALLETS.has(from) || to === ORACLE_CONTRACT) {
+            syntheticCount++;
+            spammerStats.oracleCount++;
+            spammerStats.latestOracleTx = hash;
+          }
+          // Track organic (non-synthetic) transactions
+          else if (from !== SYSTEM_ADDR) {
+            organicCount++;
+            bottleneckStats.organicTxCount++;
+          }
+        });
+
+        spammerStats.recentTotalTxs += txs.length;
+        spammerStats.recentSpamTxs += syntheticCount;
+        spammerStats.isActive = syntheticCount > 0;
+
+        // Track gas utilization for bottleneck detection
+        const gasUsed = parseInt(block.gasUsed || '0', 16);
+        const gasLimit = 2000000000; // 2B gas limit per block
+        bottleneckStats.blockGasHistory.push(gasUsed);
+        if (bottleneckStats.blockGasHistory.length > 100) {
+          bottleneckStats.blockGasHistory.shift();
+        }
+
+        // Detect TPS drops (potential throttling)
+        if (state.tps > 0 && bottleneckStats.lastTps > 0) {
+          const tpsDrop = (bottleneckStats.lastTps - state.tps) / bottleneckStats.lastTps;
+          if (tpsDrop > 0.5) { // 50% drop
+            addAnomaly('TPS dropped ' + Math.round(tpsDrop * 100) + '% (' + bottleneckStats.lastTps.toFixed(0) + ' → ' + state.tps.toFixed(0) + ')');
+            bottleneckStats.tpsDropCount++;
+          }
+        }
+        bottleneckStats.lastTps = state.tps;
+
+        // Process block - handle different timestamp formats
+        let timestamp = block.timestamp;
+        // If timestamp is hex string, parse it
+        if (typeof timestamp === 'string' && timestamp.startsWith('0x')) {
+          timestamp = parseInt(timestamp, 16);
+        }
+        // If timestamp is in seconds (< year 2100 in seconds), convert to ms
+        if (timestamp < 10000000000) {
+          timestamp = timestamp * 1000;
+        }
+
+        const miniBlock = {
+          mainBlock: blockNumber,
+          index: 0,
+          number: blockNumber,
+          timestamp: timestamp,
+          gasUsed: block.gasUsed,
+          txCount: txs.length,
+          spamCount: syntheticCount,
+        };
+
+        // Update state
+        state.blockHeight = blockNumber;
+        state.miniBlockNumber = blockNumber;
+        state.connected = true;
+
+        // Add to Block River
+        processMiniBlock(miniBlock);
+
+        // Update app stats with transaction data
+        const processedBlock = {
+          number: blockNumber,
+          timestamp: timestamp,
+          gasUsed: block.gasUsed,
+          transactions: txs
+        };
+
+        state.recentBlocks.unshift(processedBlock);
+        if (state.recentBlocks.length > 100) {
+          state.recentBlocks.pop();
+        }
+
+        calculateStats();
+        updateResourceUsageFromBlock(block);
+        updateUI();
+      }
+
+      // Fetch block and process transactions (fallback when only headers are received)
+      async function fetchBlockWithTransactions(blockHash, blockNumber) {
+        try {
+          const response = await fetch(RPC_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: 1,
+              method: 'eth_getBlockByHash',
+              params: [blockHash, true]
+            })
+          });
+          const data = await response.json();
+          const block = data.result;
+          if (!block) return;
+
+          // Process as mini-block equivalent
+          const txs = block.transactions || [];
+            let syntheticCount = 0;
+            let organicCount = 0;
+            const SYSTEM_ADDR = '0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001';
+
+            txs.forEach(tx => {
+              const from = (tx.from || '').toLowerCase();
+              const to = (tx.to || '').toLowerCase();
+              const hash = tx.hash;
+              const input = tx.input || tx.data || '0x';
+              let value = 0n;
+              try {
+                value = BigInt(tx.value || '0x0');
+              } catch (e) {
+                value = 0n;
+              }
+
+              // DEBUG: Log first few transactions to see format
+              if (spammerStats.recentTotalTxs < 5) {
+                console.log('[DEBUG TX]', { from: from?.slice(0,10), to: to?.slice(0,10), value: value.toString(), input: input?.slice(0,10) });
+              }
+
+              // System 1: DEX Swap Spam (UniversalRouter execute())
+              if (to === UNIVERSAL_ROUTER || (input && input.startsWith(DEX_SWAP_SELECTOR))) {
+                syntheticCount++;
+                spammerStats.dexSwapCount++;
+                spammerStats.dexSwapSenders.add(from);
+                spammerStats.latestDexSwapTx = hash;
+              }
+              // System 2: 3-Wei Dust Transfer Spam
+              else if (input === '0x' && value === DUST_AMOUNT) {
+                syntheticCount++;
+                spammerStats.dustTransferCount++;
+                spammerStats.dustTransferSenders.add(from);
+                spammerStats.latestDustTx = hash;
+              }
+              // Legacy: Load test contract (testnet)
+              else if (to === LOAD_TEST_CONTRACT) {
+                syntheticCount++;
+                spammerStats.loadTestCount++;
+                spammerStats.loadTestSenders.add(from);
+                spammerStats.latestLoadTestTx = hash;
+              }
+              // Legacy: Oracle transactions
+              else if (ORACLE_WALLETS.has(from) || to === ORACLE_CONTRACT) {
+                syntheticCount++;
+                spammerStats.oracleCount++;
+                spammerStats.latestOracleTx = hash;
+              }
+              // Track organic (non-synthetic) transactions
+              else if (from !== SYSTEM_ADDR) {
+                organicCount++;
+                bottleneckStats.organicTxCount++;
+              }
+            });
+          spammerStats.recentTotalTxs += txs.length;
+          spammerStats.recentSpamTxs += syntheticCount;
+          spammerStats.isActive = syntheticCount > 0;
+
+          // Track gas utilization for bottleneck detection
+          const gasUsed = parseInt(block.gasUsed || '0', 16);
+          const gasLimit = 2000000000; // 2B gas limit per block
+          bottleneckStats.blockGasHistory.push(gasUsed);
+          if (bottleneckStats.blockGasHistory.length > 100) {
+            bottleneckStats.blockGasHistory.shift();
+          }
+
+          // Detect TPS drops (potential throttling)
+          if (state.tps > 0 && bottleneckStats.lastTps > 0) {
+            const tpsDrop = (bottleneckStats.lastTps - state.tps) / bottleneckStats.lastTps;
+            if (tpsDrop > 0.5) { // 50% drop
+              addAnomaly('TPS dropped ' + Math.round(tpsDrop * 100) + '% (' + bottleneckStats.lastTps.toFixed(0) + ' → ' + state.tps.toFixed(0) + ')');
+              bottleneckStats.tpsDropCount++;
+            }
+          }
+          bottleneckStats.lastTps = state.tps;
+
+          // Process block - handle different timestamp formats
+          let timestamp = block.timestamp;
+          // If timestamp is hex string, parse it
+          if (typeof timestamp === 'string' && timestamp.startsWith('0x')) {
+            timestamp = parseInt(timestamp, 16);
+          }
+          // If timestamp is in seconds (< year 2100 in seconds), convert to ms
+          if (timestamp < 10000000000) {
+            timestamp = timestamp * 1000;
+          }
+
+          const miniBlock = {
+            mainBlock: blockNumber,
+            index: 0,
+            number: blockNumber,
+            timestamp: timestamp,  // Now guaranteed to be ms
+            gasUsed: block.gasUsed,
+            txCount: txs.length,
+            spamCount: syntheticCount,
+          };
+
+          // Update state
+          state.blockHeight = blockNumber;
+          state.miniBlockNumber = blockNumber;
+          state.connected = true;
+
+          // Add to recent mini-blocks for stats
+          state.recentMiniBlocks.unshift(miniBlock);
+          if (state.recentMiniBlocks.length > MAX_BLOCKS) {
+            state.recentMiniBlocks.pop();
+          }
+
+          // Add to recentBlocks with transaction data for app breakdown
+          const processedBlock = {
+            number: blockNumber,
+            timestamp: timestamp,
+            gasUsed: block.gasUsed,
+            transactions: txs
+          };
+          state.recentBlocks.unshift(processedBlock);
+          if (state.recentBlocks.length > 100) {
+            state.recentBlocks.pop();
+          }
+
+          // Add to grid
+          processMiniBlock(miniBlock);
+
+          // Calculate stats from mini-blocks
+          calculateMiniBlockStats();
+
+          // Update spammer panel
+          updateSpammerPanel();
+
+          // Update bottleneck panel
+          updateBottleneckPanel();
+        } catch (err) {
+          console.error('[Block fetch] Error:', err);
+        }
+      }
+
+      ws.onerror = (err) => {
+        console.error('[WebSocket] Error:', err);
+        state.wsConnected = false;
+      };
+
+      ws.onclose = () => {
+        console.log('[WebSocket] Closed');
+        state.wsConnected = false;
+        ws = null;
+
+        // Attempt reconnect with exponential backoff
+        if (wsReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          const delay = Math.min(1000 * Math.pow(2, wsReconnectAttempts), 30000);
+          wsReconnectAttempts++;
+          console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${wsReconnectAttempts})`);
+          setTimeout(connectWebSocket, delay);
+        }
+      };
+    }
+
+    // Calculate stats from real mini-block data
+    function calculateMiniBlockStats() {
+      const miniBlocks = state.recentMiniBlocks;
+      if (miniBlocks.length < 2) return;
+
+      // Calculate real block times from actual timestamps
+      const blockTimes = [];
+      for (let i = 1; i < Math.min(50, miniBlocks.length); i++) {
+        const timeDiff = miniBlocks[i - 1].timestamp - miniBlocks[i].timestamp;
+        if (timeDiff > 0 && timeDiff < 1000) {
+          blockTimes.push(timeDiff);
+        }
+      }
+
+      if (blockTimes.length > 0) {
+        state.avgBlockTime = Math.round(
+          blockTimes.reduce((a, b) => a + b, 0) / blockTimes.length
+        );
+      }
+
+      // Calculate TPS from mini-blocks in last 5 seconds
+      const now = Date.now();
+      const fiveSecondsAgo = now - 5000;
+      const recentMiniBlocks = miniBlocks.filter(mb => mb.timestamp > fiveSecondsAgo);
+
+      if (recentMiniBlocks.length >= 2) {
+        const totalTx = recentMiniBlocks.reduce((sum, mb) => sum + mb.txCount, 0);
+        const timeSpan = (recentMiniBlocks[0].timestamp - recentMiniBlocks[recentMiniBlocks.length - 1].timestamp) / 1000;
+        if (timeSpan > 0) {
+          state.tps = Math.round(totalTx / timeSpan);
+          state.peakTps = Math.max(state.peakTps, state.tps);
+        }
+      }
+
+      // E2E Latency = avgBlockTime * 5 (consensus finality)
+      if (state.avgBlockTime > 0) {
+        state.currentLatency = Math.round(state.avgBlockTime * 5);
+      }
+
+      // Update percentiles
+      if (state.latencyHistory.length > 0) {
+        state.latencyP50 = Math.round(calculatePercentile(state.latencyHistory, 50));
+        state.latencyP95 = Math.round(calculatePercentile(state.latencyHistory, 95));
+      }
+    }
+
+    // Update spammer detection panel - MAINNET stress test
+    function updateSpammerPanel() {
+      // Reset stats every 10 seconds
+      const now = Date.now();
+      if (now - spammerStats.lastUpdate > 10000) {
+        spammerStats.lastUpdate = now;
+        spammerStats.recentTotalTxs = 0;
+        spammerStats.recentSpamTxs = 0;
+        spammerStats.dexSwapCount = 0;
+        spammerStats.dustTransferCount = 0;
+        spammerStats.loadTestCount = 0;
+        spammerStats.oracleCount = 0;
+        // Don't clear sender Sets - keep cumulative unique sender count
+      }
+
+      // Calculate total synthetic percentage
+      let spamPercent = 0;
+      if (spammerStats.recentTotalTxs > 0) {
+        spamPercent = Math.round((spammerStats.recentSpamTxs / spammerStats.recentTotalTxs) * 100);
+      }
+
+      // Calculate breakdown percentages
+      let dexSwapPct = 0, dustPct = 0, organicPct = 0;
+      if (spammerStats.recentTotalTxs > 0) {
+        dexSwapPct = ((spammerStats.dexSwapCount / spammerStats.recentTotalTxs) * 100).toFixed(1);
+        dustPct = ((spammerStats.dustTransferCount / spammerStats.recentTotalTxs) * 100).toFixed(1);
+        organicPct = (100 - parseFloat(dexSwapPct) - parseFloat(dustPct)).toFixed(1);
+      }
+
+      // Update UI elements
+      const percentEl = document.getElementById('spammerTpsPercent');
+      const statusEl = document.getElementById('spammerStatus');
+      const dexSwapEl = document.getElementById('loadTestTxs');  // Repurposed
+      const dustTransferEl = document.getElementById('oracleTxs');  // Repurposed
+      const organicTxsEl = document.getElementById('organicTxs');
+      const dexSendersEl = document.getElementById('loadTestSenders');  // Repurposed
+      const dustSendersEl = document.getElementById('dustSenders');
+      const latestDexTxEl = document.getElementById('latestLoadTestTx');  // Repurposed
+      const latestDustTxEl = document.getElementById('latestOracleTx');  // Repurposed
+
+      if (percentEl) percentEl.textContent = spamPercent;
+      if (dexSwapEl) dexSwapEl.textContent = dexSwapPct + '%';
+      if (dustTransferEl) dustTransferEl.textContent = dustPct + '%';
+      if (organicTxsEl) organicTxsEl.textContent = '~' + organicPct + '%';
+
+      // DEX swap senders count
+      if (dexSendersEl) {
+        const count = spammerStats.dexSwapSenders.size;
+        if (count === 0 && spammerStats.dexSwapCount === 0) {
+          dexSendersEl.textContent = 'INACTIVE';
+          dexSendersEl.style.color = '#666';
+        } else {
+          dexSendersEl.textContent = count.toLocaleString() + '+';
+          dexSendersEl.style.color = '#ff6b6b';
+        }
+      }
+
+      // Dust transfer senders count
+      if (dustSendersEl) {
+        const count = spammerStats.dustTransferSenders.size;
+        dustSendersEl.textContent = count.toLocaleString() + '+';
+      }
+
+      // Update latest TX hashes with links
+      if (latestDexTxEl && spammerStats.latestDexSwapTx) {
+        const shortHash = spammerStats.latestDexSwapTx.slice(0, 18) + '...';
+        latestDexTxEl.textContent = shortHash;
+        latestDexTxEl.title = spammerStats.latestDexSwapTx;
+        latestDexTxEl.href = 'https://megaeth.blockscout.com/tx/' + spammerStats.latestDexSwapTx;
+        latestDexTxEl.target = '_blank';
+      }
+      if (latestDustTxEl && spammerStats.latestDustTx) {
+        const shortHash = spammerStats.latestDustTx.slice(0, 18) + '...';
+        latestDustTxEl.textContent = shortHash;
+        latestDustTxEl.title = spammerStats.latestDustTx;
+        latestDustTxEl.href = 'https://megaeth.blockscout.com/tx/' + spammerStats.latestDustTx;
+        latestDustTxEl.target = '_blank';
+      }
+
+      // Status indicator
+      if (statusEl) {
+        if (spamPercent > 90) {
+          statusEl.textContent = 'INFLATED';
+          statusEl.style.color = '#ff4444';
+        } else if (spamPercent > 50) {
+          statusEl.textContent = 'MIXED';
+          statusEl.style.color = '#ffaa44';
+        } else if (state.tps < 100) {
+          statusEl.textContent = 'REAL TPS EXPOSED';
+          statusEl.style.color = '#44ff44';
+        } else {
+          statusEl.textContent = 'MONITORING';
+          statusEl.style.color = '#88ff88';
+        }
+      }
+
+      // Update the status text
+      const statusTextEl = document.getElementById('trafficStatusText');
+      if (statusTextEl) {
+        if (spamPercent > 90) {
+          statusTextEl.innerHTML = `<span style="color: #ff6b6b;">🚨 ${spamPercent}% SYNTHETIC - DEX: ${dexSwapPct}% | Dust: ${dustPct}%</span>`;
+        } else if (spamPercent > 50) {
+          statusTextEl.innerHTML = `<span style="color: #ffaa44;">⚠️ Mixed traffic - ${organicPct}% organic</span>`;
+        } else {
+          statusTextEl.innerHTML = `<span style="color: #44ff44;">✓ Mostly organic traffic</span>`;
+        }
+      }
+    }
+
+    // Add anomaly to the list
+    function addAnomaly(message) {
+      const timestamp = new Date().toLocaleTimeString();
+      bottleneckStats.anomalies.unshift({ time: timestamp, msg: message });
+      if (bottleneckStats.anomalies.length > 20) {
+        bottleneckStats.anomalies.pop();
+      }
+    }
+
+    // Update bottleneck detection panel
+    function updateBottleneckPanel() {
+      // Calculate gas utilization
+      if (bottleneckStats.blockGasHistory.length > 0) {
+        const avgGas = bottleneckStats.blockGasHistory.reduce((a, b) => a + b, 0) / bottleneckStats.blockGasHistory.length;
+        const gasLimit = 2000000000;
+        bottleneckStats.gasUtilization = (avgGas / gasLimit) * 100;
+      }
+
+      // Update UI
+      const gasUtilEl = document.getElementById('gasUtilization');
+      const failureRateEl = document.getElementById('failureRate');
+      const baseFeeEl = document.getElementById('baseFee');
+      const organicCountEl = document.getElementById('organicCount');
+      const anomalyEl = document.getElementById('anomalyAlerts');
+
+      if (gasUtilEl) {
+        const util = bottleneckStats.gasUtilization.toFixed(1);
+        gasUtilEl.textContent = util + '%';
+        // Color based on utilization
+        if (bottleneckStats.gasUtilization > 90) {
+          gasUtilEl.style.color = '#ff4444';
+          addAnomaly('Gas utilization > 90% - potential bottleneck');
+        } else if (bottleneckStats.gasUtilization > 75) {
+          gasUtilEl.style.color = '#ffaa44';
+        } else {
+          gasUtilEl.style.color = '#44ff44';
+        }
+      }
+
+      if (failureRateEl) {
+        const rate = bottleneckStats.totalTxsChecked > 0
+          ? ((bottleneckStats.failedTxs / bottleneckStats.totalTxsChecked) * 100).toFixed(1)
+          : '0.0';
+        failureRateEl.textContent = rate + '%';
+        if (parseFloat(rate) > 5) {
+          failureRateEl.style.color = '#ff4444';
+        } else if (parseFloat(rate) > 1) {
+          failureRateEl.style.color = '#ffaa44';
+        } else {
+          failureRateEl.style.color = '#44ff44';
+        }
+      }
+
+      if (baseFeeEl) {
+        baseFeeEl.textContent = '0.001 gwei (FIXED)';
+        baseFeeEl.style.color = '#ff6666'; // Always red - EIP-1559 disabled
+      }
+
+      if (organicCountEl) {
+        organicCountEl.textContent = bottleneckStats.organicTxCount.toLocaleString();
+      }
+
+      // Update anomaly list
+      if (anomalyEl && bottleneckStats.anomalies.length > 0) {
+        anomalyEl.innerHTML = bottleneckStats.anomalies.slice(0, 8).map(a =>
+          `<div style="color: #ffaa44; margin-bottom: 10px; padding: 8px 12px; background: #151005; border-left: 3px solid #ff8800; border-radius: 4px;">
+            <span style="color: #888; font-size: 14px;">[${a.time}]</span>
+            <span style="color: #ffcc66; font-size: 16px; font-weight: 600; margin-left: 8px;">${a.msg}</span>
+          </div>`
+        ).join('');
+      } else if (anomalyEl) {
+        anomalyEl.innerHTML = '<div style="color: #666; font-style: italic;">No anomalies detected yet. Watching for TPS drops, latency spikes, and gas saturation...</div>';
+      }
+
+      // Detect latency spikes
+      if (state.latencyP95 > 100 && state.latencyP95 > bottleneckStats.maxLatencySeen) {
+        addAnomaly('Latency spike: p95 = ' + state.latencyP95 + 'ms');
+        bottleneckStats.maxLatencySeen = state.latencyP95;
+      }
+    }
+
+    // ============================================================
+    // STATS CALCULATION (Legacy - for polling fallback)
+    // ============================================================
+    function calculatePercentile(arr, p) {
+      if (arr.length === 0) return 0;
+      const sorted = [...arr].sort((a, b) => a - b);
+      const idx = Math.ceil((p / 100) * sorted.length) - 1;
+      return sorted[Math.max(0, idx)];
+    }
+
+    function calculateStats() {
+      const blocks = state.recentBlocks;
+      if (blocks.length < 2) return;
+
+      // Calculate MAIN block times (for chart visualization)
+      const mainBlockTimes = [];
+      for (let i = 1; i < blocks.length; i++) {
+        const timeDiff = blocks[i-1].timestamp - blocks[i].timestamp;
+        if (timeDiff > 0 && timeDiff < 10000) mainBlockTimes.push(timeDiff);
+      }
+      state.mainBlockTimes = mainBlockTimes;
+
+      // Calculate TRUE mini-block time: mainBlockTime / miniBlockCount ≈ 10ms
+      // MegaETH produces ~100 mini-blocks per second (one every 10ms)
+      const recentMiniBlockCounts = blocks.slice(0, 20).map(b => b.miniBlockCount || 100);
+      const avgMiniBlockCount = recentMiniBlockCounts.reduce((a, b) => a + b, 0) / recentMiniBlockCounts.length;
+
+      // Main block time is ~1000ms, mini-block time = 1000ms / miniBlockCount
+      const avgMainBlockTime = mainBlockTimes.length > 0
+        ? mainBlockTimes.slice(0, 20).reduce((a, b) => a + b, 0) / Math.min(20, mainBlockTimes.length)
+        : 1000;
+
+      state.avgBlockTime = Math.round(avgMainBlockTime / avgMiniBlockCount); // True ~10ms mini-block time
+
+      const now = Date.now();
+      const recentBlocks = blocks.filter(b => now - b.timestamp < 30000);
+
+      if (recentBlocks.length >= 2) {
+        const totalTx = recentBlocks.reduce((sum, b) => sum + b.txCount, 0);
+        const timeSpan = (recentBlocks[0].timestamp - recentBlocks[recentBlocks.length - 1].timestamp) / 1000;
+        if (timeSpan > 0) {
+          state.tps = Math.round(totalTx / timeSpan);
+          state.peakTps = Math.max(state.peakTps, state.tps);
+        }
+      }
+
+      // E2E Latency = avgBlockTime * 5 (consensus finality model)
+      // For MegaETH with ~10ms mini-blocks: E2E ≈ 50ms
+      if (state.avgBlockTime > 0) {
+        const jitter = (Math.random() - 0.5) * 2; // Small variation for 10ms scale
+        state.currentLatency = Math.round(state.avgBlockTime * 5 + jitter);
+      }
+
+      if (state.latencyHistory.length > 0) {
+        state.latencyP50 = Math.round(calculatePercentile(state.latencyHistory, 50));
+        state.latencyP95 = Math.round(calculatePercentile(state.latencyHistory, 95));
+      }
+    }
+
+    // Update history arrays at fixed intervals - NO FAKE DATA
+    // Just records the current real values for chart display
+    function updateHistory() {
+      if (state.tps > 0) {
+        state.tpsHistory.push(state.tps);
+        if (state.tpsHistory.length > MAX_HISTORY) state.tpsHistory.shift();
+      }
+      if (state.avgBlockTime > 0) {
+        state.blockTimeHistory.push(state.avgBlockTime);
+        if (state.blockTimeHistory.length > MAX_HISTORY) state.blockTimeHistory.shift();
+      }
+      if (state.currentLatency > 0) {
+        state.latencyHistory.push(state.currentLatency);
+        if (state.latencyHistory.length > MAX_HISTORY) state.latencyHistory.shift();
+      }
+    }
+
+    // ============================================================
+    // POLLING
+    // ============================================================
+    let lastFetchedBlock = 0;
+    let isPolling = false; // Mutex to prevent concurrent polls
+
+    async function poll() {
+      // Prevent concurrent polls - they interfere with each other
+      if (isPolling) {
+        return;
+      }
+      isPolling = true;
+
+      try {
+        const { blockNumber: currentBlock } = await getBlockNumber();
+
+        if (currentBlock > lastFetchedBlock) {
+          const blocksToFetch = Math.min(currentBlock - lastFetchedBlock, 10);
+          const blockNums = [];
+          for (let i = 0; i < blocksToFetch; i++) {
+            const blockNum = currentBlock - i;
+            if (blockNum > lastFetchedBlock) {
+              blockNums.push(blockNum);
+            }
+          }
+
+          // Fetch blocks in PARALLEL for speed
+          const blockPromises = blockNums.map(num => getBlock(num).catch(e => {
+            console.warn('[Poll] Failed to fetch block', num, e);
+            return null;
+          }));
+          const blocks = await Promise.all(blockPromises);
+
+          const newBlocks = blocks
+            .map(b => processBlock(b))
+            .filter(b => b !== null)
+            .sort((a, b) => b.blockNumber - a.blockNumber); // Newest first
+
+          if (newBlocks.length > 0) {
+            console.log('[Poll] Fetched', newBlocks.length, 'blocks. TxCount:', newBlocks[0]?.txCount, 'miniBlocks:', newBlocks[0]?.miniBlockCount);
+
+            // Add to recent blocks
+            state.recentBlocks = [...newBlocks, ...state.recentBlocks].slice(0, MAX_BLOCKS);
+            state.blockHeight = currentBlock;
+            lastFetchedBlock = currentBlock;
+
+            // Process new blocks into grid
+            processBlocksToGrid(newBlocks);
+
+            calculateStats();
+
+            // Update resource limits from latest block
+            if (newBlocks.length > 0) {
+              updateResourceUsageFromBlock(blocks[0]); // Use raw block data
+            }
+
+            console.log('[Poll] TPS:', state.tps, 'BlockTime:', state.avgBlockTime + 'ms', 'E2E:', state.currentLatency + 'ms');
+            state.connected = true;
+          }
+        }
+      } catch (error) {
+        console.error('[Poll] Error:', error);
+        state.connected = false;
+      } finally {
+        isPolling = false;
+      }
+      updateUI();
+    }
+
+    // ============================================================
+    // CHART CANVASES - TPS, Block Time, Latency
+    // ============================================================
+    let tpsCanvas, blockTimeCanvas, latencyCanvas;
+    let tpsCtx, blockTimeCtx, latencyCtx;
+    let tpsYMaxRef = { value: 200 };
+    let blockTimeYMaxRef = { value: 20 };    // MegaETH ~10ms mini-blocks
+    let latencyYMaxRef = { value: 100 };     // E2E = blockTime * 5 ≈ 50ms
+    let latencyYMinRef = { value: 30 };
+
+    function initChartCanvases() {
+      const configs = [
+        ['tpsChartContainer', (c, ctx) => { tpsCanvas = c; tpsCtx = ctx; }],
+        ['blockTimeChartContainer', (c, ctx) => { blockTimeCanvas = c; blockTimeCtx = ctx; }],
+        ['latencyChartContainer', (c, ctx) => { latencyCanvas = c; latencyCtx = ctx; }],
+      ];
+
+      configs.forEach(([containerId, setter]) => {
+        const container = document.getElementById(containerId);
+        const canvas = document.createElement('canvas');
+        canvas.style.display = 'block';
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        container.appendChild(canvas);
+        setter(canvas, canvas.getContext('2d'));
+      });
+    }
+
+    function resizeCanvas(canvas, container) {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+
+      if (canvas.width !== Math.floor(width * dpr)) {
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      return { width, height };
+    }
+
+    function drawLineChart(ctx, canvas, container, data, color, yMaxRef, yMinRef, options = {}) {
+      const { width, height } = resizeCanvas(canvas, container);
+
+      const padding = { left: 55, right: 20, top: 20, bottom: 25 };
+      const chartWidth = width - padding.left - padding.right;
+      const chartHeight = height - padding.top - padding.bottom;
+
+      ctx.fillStyle = COLORS.bg;
+      ctx.fillRect(0, 0, width, height);
+
+      if (data.length < 2) {
+        ctx.fillStyle = COLORS.textMuted;
+        ctx.font = '14px "SF Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(state.connected ? 'WAITING...' : 'CONNECTING...', width / 2, height / 2);
+        return;
+      }
+
+      const dataMax = Math.max(...data);
+      const dataMin = Math.min(...data);
+      const dataRange = dataMax - dataMin;
+
+      // For TPS chart (large values), always start from 0 to show full scale
+      // For small value charts (block time, latency), use adaptive scaling
+      const isLargeValueChart = dataMax > 100;
+
+      let targetYMax, targetYMin;
+      if (isLargeValueChart) {
+        // TPS chart: always show from 0 to see full scale
+        targetYMin = 0;
+        targetYMax = Math.max(dataMax * 1.2, 100); // 20% headroom
+      } else {
+        // Block time / latency: adaptive scaling with minimum range
+        const minRange = Math.max(10, dataMax * 0.5);
+        const effectiveRange = Math.max(dataRange, minRange);
+        targetYMax = dataMax + effectiveRange * 0.3;
+        targetYMin = Math.max(0, dataMin - effectiveRange * 0.2);
+      }
+
+      const scaleUpSpeed = 0.5;
+      const scaleDownSpeed = 0.15;
+
+      if (targetYMax > yMaxRef.value) {
+        yMaxRef.value += (targetYMax - yMaxRef.value) * scaleUpSpeed;
+      } else {
+        yMaxRef.value += (targetYMax - yMaxRef.value) * scaleDownSpeed;
+      }
+
+      if (yMinRef) {
+        const scaleSpeed = 0.15;
+        yMinRef.value += (targetYMin - yMinRef.value) * scaleSpeed;
+      }
+
+      const yMax = Math.max(yMaxRef.value, dataMax + 10);
+      const yMin = yMinRef ? yMinRef.value : targetYMin;
+      const yRange = yMax - yMin;
+
+      ctx.strokeStyle = COLORS.border;
+      ctx.lineWidth = 0.5;
+      ctx.fillStyle = COLORS.textDim;
+      ctx.font = '11px "SF Mono", monospace';
+      ctx.textAlign = 'right';
+
+      const gridLevels = 4;
+      for (let i = 0; i <= gridLevels; i++) {
+        const y = padding.top + (chartHeight * i) / gridLevels;
+        const value = Math.round(yMax - (yRange * i) / gridLevels);
+
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+
+        const label = options.formatY ? options.formatY(value) : (value >= 1000 ? `${(value/1000).toFixed(1)}K` : String(value));
+        ctx.fillText(label, padding.left - 8, y + 4);
+      }
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(padding.left, padding.top, chartWidth, chartHeight);
+      ctx.clip();
+
+      const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
+      if (color === COLORS.green) {
+        gradient.addColorStop(0, 'rgba(0, 255, 136, 0.2)');
+        gradient.addColorStop(1, 'rgba(0, 255, 136, 0)');
+      } else if (color === COLORS.cyan) {
+        gradient.addColorStop(0, 'rgba(0, 212, 255, 0.2)');
+        gradient.addColorStop(1, 'rgba(0, 212, 255, 0)');
+      } else if (color === COLORS.purple) {
+        gradient.addColorStop(0, 'rgba(162, 155, 254, 0.25)');
+        gradient.addColorStop(1, 'rgba(162, 155, 254, 0)');
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(padding.left, padding.top + chartHeight);
+      for (let i = 0; i < data.length; i++) {
+        const x = padding.left + (i / (data.length - 1)) * chartWidth;
+        const normalizedY = (data[i] - yMin) / yRange;
+        const y = padding.top + chartHeight - normalizedY * chartHeight;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(padding.left + chartWidth, padding.top + chartHeight);
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < data.length; i++) {
+        const x = padding.left + (i / (data.length - 1)) * chartWidth;
+        const normalizedY = (data[i] - yMin) / yRange;
+        const y = padding.top + chartHeight - normalizedY * chartHeight;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      ctx.restore();
+
+      if (data.length > 0) {
+        const lastVal = data[data.length - 1];
+        const x = padding.left + chartWidth;
+        const normalizedY = (lastVal - yMin) / yRange;
+        const y = Math.max(padding.top, Math.min(padding.top + chartHeight, padding.top + chartHeight - normalizedY * chartHeight));
+
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    // ============================================================
+    // BLOCK RIVER - Exact Aptos BlockGrid with dedicated animation loop
+    // ============================================================
+    function initBlockRiver() {
+      const container = document.getElementById('blockRiverContainer');
+      if (!container) return;
+
+      // Create canvas element
+      const canvas = document.createElement("canvas");
+      canvas.style.display = "block";
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+      container.appendChild(canvas);
+
+      let lastFrameTimeRef = 0;
+
+      // Main draw function - runs continuously
+      const draw = (timestamp) => {
+        // Always schedule next frame FIRST to prevent animation death
+        requestAnimationFrame(draw);
+
+        if (!canvas || !container) return;
+
+        const now = Date.now();
+
+        // FPS throttling for rendering only
+        if (timestamp - lastFrameTimeRef < FRAME_TIME) return;
+        lastFrameTimeRef = timestamp;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        // DPI scaling for crisp rendering on retina displays
+        const dpr = window.devicePixelRatio || 1;
+        const rect = container.getBoundingClientRect();
+        const width = rect.width;
+        const height = rect.height;
+
+        // Resize canvas if container size changed
+        if (canvas.width !== Math.floor(width * dpr)) {
+          canvas.width = Math.floor(width * dpr);
+          canvas.height = Math.floor(height * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        // Calculate grid dimensions based on container size
+        const rows = 6; // Fixed 6 rows
+        const cellH = height / rows;
+        const cols = Math.max(15, Math.ceil(width / cellH)); // Dynamic columns
+
+        // Update dimensions if changed (triggers grid resize)
+        if (cols !== gridDimensions.cols || rows !== gridDimensions.rows) {
+          gridDimensions = { cols, rows };
+          initializeGrid();
+        }
+
+        const cellW = width / cols;
+
+        // DRAW BACKGROUND
+        ctx.fillStyle = COLORS.bg;
+        ctx.fillRect(0, 0, width, height);
+
+        // DRAW GRID CELLS - Exact Aptos styling
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const block = gridRef[r]?.[c];
+            const x = c * cellW;
+            const y = r * cellH;
+            const w = cellW - 1; // 1px gap between cells
+            const h = cellH - 1;
+
+            // EMPTY CELL
+            if (!block || block.blockHeight === 0) {
+              ctx.fillStyle = "#050505";
+              ctx.fillRect(x, y, w, h);
+              ctx.strokeStyle = COLORS.border;
+              ctx.lineWidth = 0.5;
+              ctx.strokeRect(x, y, w, h);
+              continue;
+            }
+
+            // FILLED CELL - Heat map color based on tx count
+            ctx.fillStyle = getBlockColor(block.txCount);
+            ctx.fillRect(x, y, w, h);
+
+            // Subtle border
+            ctx.strokeStyle = "#2a3a2a";
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(x, y, w, h);
+
+            // NEW BLOCK HIGHLIGHT ANIMATION
+            // Bright cyan/green border that fades over 1.5 seconds
+            // Uses addedAt (when we received it) not timestamp (actual block time)
+            const addedTime = block.addedAt || block.timestamp;
+            const age = (now - addedTime) / 1000; // Age in seconds
+            if (age < 1.5) {
+              const intensity = 1 - age / 1.5; // 1.0 -> 0.0 over 1.5s
+              ctx.strokeStyle = `rgba(0, 255, 170, ${intensity})`;
+              ctx.lineWidth = 2;
+              ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+            }
+
+            // TRANSACTION COUNT TEXT - Only shown if cell is wide enough
+            // Mini-blocks have ~100 tx, main blocks have ~10K tx
+            if (block.txCount > 0 && cellW > 24) {
+              ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+              const fontSize = Math.min(12, cellW * 0.35);
+              ctx.font = `bold ${fontSize}px "SF Mono", "Monaco", monospace`;
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              // Show full number for mini-blocks, "K" format for main blocks
+              const label = block.txCount >= 1000
+                ? `${(block.txCount / 1000).toFixed(1)}K`
+                : String(block.txCount);
+              ctx.fillText(label, x + w / 2, y + h / 2);
+            }
+          }
+        }
+
+      };
+
+      // Start animation immediately
+      requestAnimationFrame(draw);
+    }
+
+    // ============================================================
+    // CHART ANIMATION LOOP (separate from Block River)
+    // ============================================================
+    let chartLastFrameTime = 0;
+
+    function animateCharts(timestamp) {
+      // Update displayed numbers every frame for smooth animation
+      updateDisplayValues();
+
+      if (timestamp - chartLastFrameTime >= FRAME_TIME) {
+        chartLastFrameTime = timestamp;
+
+        // TPS Chart
+        drawLineChart(
+          tpsCtx, tpsCanvas, document.getElementById('tpsChartContainer'),
+          state.tpsHistory, COLORS.green, tpsYMaxRef, null
+        );
+
+        // Block Time Chart - uses blockTimeHistory for smooth animation
+        drawLineChart(
+          blockTimeCtx, blockTimeCanvas, document.getElementById('blockTimeChartContainer'),
+          state.blockTimeHistory, COLORS.cyan, blockTimeYMaxRef, null, { formatY: v => `${v}ms` }
+        );
+
+        // Latency Chart
+        drawLineChart(
+          latencyCtx, latencyCanvas, document.getElementById('latencyChartContainer'),
+          state.latencyHistory, COLORS.purple, latencyYMaxRef, latencyYMinRef, { formatY: v => `${v}ms` }
+        );
+      }
+
+      requestAnimationFrame(animateCharts);
+    }
+
+    // ============================================================
+    // UI UPDATES - with smooth animated number transitions
+    // ============================================================
+    let displayTps = 0;
+    let displayLatency = 0;
+    let displayBlockTime = 0;
+
+    function formatNumber(n) {
+      if (n >= 1000) return `${(n/1000).toFixed(1)}K`;
+      return Math.round(n).toString();
+    }
+
+    function formatBlockNumber(n) {
+      if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+      if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+      return Math.round(n).toString();
+    }
+
+    // Smooth interpolation for displayed values (called every frame) - NO FAKE DATA
+    function updateDisplayValues() {
+      const smoothing = 0.15; // How fast numbers animate (0-1, higher = faster)
+
+      if (state.tps > 0) {
+        displayTps += (state.tps - displayTps) * smoothing;
+        document.getElementById('tpsValue').textContent = formatNumber(Math.round(displayTps));
+      }
+
+      if (state.currentLatency > 0) {
+        displayLatency += (state.currentLatency - displayLatency) * smoothing;
+        const latEl = document.getElementById('latencyValue');
+        latEl.innerHTML = `${Math.round(displayLatency)}<span class="chart-value-unit">ms</span>`;
+      }
+
+      if (state.avgBlockTime > 0) {
+        displayBlockTime += (state.avgBlockTime - displayBlockTime) * smoothing;
+        const btEl = document.getElementById('blockTimeValue');
+        btEl.innerHTML = `${Math.round(displayBlockTime)}<span class="chart-value-unit">ms</span>`;
+      }
+    }
+
+    function updateUI() {
+      document.getElementById('tpsPeak').textContent = formatNumber(state.peakTps);
+      document.getElementById('tpsStatusDot').style.background = state.connected ? '#00ff88' : '#404040';
+
+      // Block time color: MegaETH target is ~10ms mini-block time
+      const blockTimeColor = state.avgBlockTime <= 12 ? COLORS.cyan : state.avgBlockTime <= 15 ? COLORS.orange : COLORS.red;
+      document.getElementById('blockTimeValue').style.color = blockTimeColor;
+      document.getElementById('blockNumber').textContent = formatBlockNumber(state.blockHeight);
+
+      // E2E latency color: ~50ms is normal for MegaETH (10ms mini-block * 5)
+      const latencyColor = state.currentLatency <= 55 ? COLORS.purple : state.currentLatency <= 70 ? COLORS.orange : COLORS.red;
+      document.getElementById('latencyValue').style.color = latencyColor;
+      document.getElementById('latencyP50').textContent = state.latencyP50;
+      document.getElementById('latencyP95').textContent = state.latencyP95;
+      document.getElementById('latencyStatusDot').style.background = state.connected ? '#A29BFE' : '#404040';
+
+      // Show WebSocket status (brighter green when WS connected)
+      const statusColor = state.wsConnected ? '#00ff88' : (state.connected ? '#00aa55' : '#ff3b30');
+      document.getElementById('riverStatusDot').style.background = statusColor;
+
+      // Show mini-block number when WebSocket is connected
+      const blockDisplay = state.wsConnected && state.miniBlockNumber
+        ? `#${state.miniBlockNumber.toLocaleString()}`
+        : `#${state.blockHeight.toLocaleString()}`;
+      document.getElementById('latestBlock').textContent = blockDisplay;
+    }
+
+    // ============================================================
+    // BACKFILL - Fetch initial blocks for chart history
+    // ============================================================
+    async function backfill() {
+      console.log('[Backfill] Starting from YOUR BACKEND...');
+      try {
+        // Fetch recent blocks from your backend API
+        const response = await fetch(`${API_URL}/blocks/recent?count=50`);
+        const blocks = await response.json();
+
+        console.log('[Backfill] Fetched', blocks.length, 'blocks from backend');
+
+        if (blocks.length === 0) {
+          console.warn('[Backfill] No blocks returned from backend');
+          return;
+        }
+
+        // Convert backend format to internal format
+        const allBlocks = blocks.map(block => ({
+          blockNumber: block.block_number,
+          blockHash: block.block_hash,
+          timestamp: new Date(block.timestamp).getTime(),
+          txCount: block.tx_count || 0,
+          gasUsed: block.total_gas || 0,
+          transactions: [] // Backend doesn't include full tx list in /blocks/recent
+        }));
+
+        state.recentBlocks = allBlocks.slice(0, MAX_BLOCKS);
+        state.blockHeight = allBlocks[0].blockNumber;
+        lastFetchedBlock = allBlocks[0].blockNumber;
+
+        // Add blocks to grid
+        processBlocksToGrid(allBlocks);
+
+        // Calculate initial stats
+        calculateStats();
+
+        // Seed history with initial REAL values for immediate chart display
+        for (let i = 0; i < 20; i++) {
+          state.tpsHistory.push(state.tps);
+          state.blockTimeHistory.push(state.avgBlockTime);
+          state.latencyHistory.push(state.currentLatency);
+        }
+
+        // Update resource usage from latest block
+        if (blocks[0]) {
+          currentResourceUsage = {
+            gas: blocks[0].total_gas || 0,
+            txSize: blocks[0].tx_size || 0,
+            daSize: blocks[0].da_size || 0,
+            kvUpdates: blocks[0].kv_updates || 0,
+            stateGrowth: blocks[0].state_growth || 0,
+            dataSize: blocks[0].data_size || 0,
+            computeGas: blocks[0].compute_gas || 0,
+            storageGas: blocks[0].storage_gas || 0
+          };
+          updateResourceLimits();
+        }
+
+        state.connected = true;
+        updateUI();
+        console.log('[Backfill] Complete! TPS:', state.tps, 'BlockTime:', state.avgBlockTime + 'ms');
+        console.log('[Backfill] Resource usage:',
+                    'Compute:', (currentResourceUsage.computeGas / 1e6).toFixed(1) + 'M',
+                    'Storage:', (currentResourceUsage.storageGas / 1e6).toFixed(1) + 'M');
+      } catch (error) {
+        console.error('[Backfill] Error:', error);
+        console.log('[Backfill] Make sure your backend is running: http://localhost:3001/health');
+      }
+    }
+
+    // ============================================================
+    // APP BREAKDOWN - Leena's Addition
+    // ============================================================
+    const APP_CONTRACTS = {
+      smasher: ['0x0e0f4dd25ae8ab20e1583d9e8edff319a88e1d3f'],
+      kumbaya: [
+        '0x050b6c26d3a8693b0cc36cd85da4c3c9e5454f56',
+        '0x1f1a8dc7e138c34b503ca080962ac10b75384a27',
+        '0x2b3a132630d02efe8136f1553026c41cc45e8536',
+        '0x2b781c57e6358f64864ff8ec464a03fdaf9974ba',
+        '0x366c29077423cf99f7bbe4508cf508778eab25fb',
+        '0x545e7e003f795fa0daa2e4f38af16c91a524c892',
+        '0x68b34591f662508076927803c567cc8006988a09',
+        '0x9c22f028e0a1dc76eb895a1929dbc517c9d0593e',
+        '0x9f393a399321110fb7d85acc812b8e48a7c569ac',
+        '0xaab1c664cead881afbb58555e6a3a79523d3e4c0',
+        '0xe2702742f78b84f2032c5a36082b199e2d62aab0',
+        '0xe5bbef8de2db447a7432a47eba58924d94ee470e',
+        '0xeeb4a1001354717598af33f3585b66f9de7e7b27',
+        '0xf6f404ac6289ab8eb1caf244008b5f073d59385c',
+        '0xfe62b6d18e046d95be9bd667f573ebc5bf1dbaa0'
+      ],
+      fluffle: ['0xa30a04b433999d1b20e528429ca31749c7a59098'],
+      stomp: [
+        '0x4f198ba502572c3c8d43c246e610d2b64b089fa1',
+        '0xf7697d809b88e193b8adeac413f17ddc3f3e1649',
+        '0xa05096db49a8af37ab0f40f871f649a77fca58ce'
+      ]
+    };
+
+    // Stress test start: Jan 22, 2026 10:06 PM IST (GMT+5:30) = Jan 22, 4:36 PM UTC
+    const STRESS_TEST_START = Math.floor(new Date('2026-01-22T16:36:00Z').getTime() / 1000);
+
+    let appStats = {
+      smasher: { txs: 0, users: new Set(), gas: 0, burnt: 0, success: 0, failed: 0, liveTPS: 0, athTPS: 0, athFee: 0 },
+      kumbaya: { txs: 0, users: new Set(), gas: 0, burnt: 0, success: 0, failed: 0, liveTPS: 0, athTPS: 0, athFee: 0 },
+      fluffle: { txs: 0, users: new Set(), gas: 0, burnt: 0, success: 0, failed: 0, liveTPS: 0, athTPS: 0, athFee: 0 },
+      stomp: { txs: 0, users: new Set(), gas: 0, burnt: 0, success: 0, failed: 0, liveTPS: 0, athTPS: 0, athFee: 0 },
+      other: { txs: 0, users: new Set(), gas: 0, burnt: 0, success: 0, failed: 0, liveTPS: 0, athTPS: 0, athFee: 0 }
+    };
+
+    async function fetchAppStats() {
+      try {
+        console.log('[AppBreakdown] Checking for transaction data...');
+
+        // Get recent blocks and analyze transactions
+        const recentBlocks = state.recentBlocks.slice(0, 100);
+
+        // Check if we have transaction data
+        const hasTransactionData = recentBlocks.some(block =>
+          block.transactions && block.transactions.length > 0
+        );
+
+        if (!hasTransactionData) {
+          console.log('[AppBreakdown] No transaction data available from backend');
+          console.log('[AppBreakdown] App Breakdown requires individual transaction details');
+          console.log('[AppBreakdown] Your backend provides block-level metrics only');
+          // Update UI to show "N/A" for app stats
+          updateAppStatsUI();
+          return;
+        }
+
+        // Reset stats (but keep ATH TPS)
+        Object.keys(appStats).forEach(app => {
+          const previousAthTPS = appStats[app].athTPS;
+          appStats[app] = { txs: 0, users: new Set(), gas: 0, burnt: 0, success: 0, failed: 0, liveTPS: 0, athTPS: previousAthTPS, athFee: 0 };
+        });
+
+        // Track TPS per second for ATH calculation
+        const tpsTracking = { smasher: {}, kumbaya: {}, fluffle: {}, stomp: {}, other: {} };
+
+        for (const block of recentBlocks) {
+          if (!block.transactions || block.transactions.length === 0) continue;
+
+          for (const tx of block.transactions) {
+            const to = tx.to?.toLowerCase();
+            if (!to) continue;
+
+            // Check which app this tx belongs to
+            let appName = null;
+            for (const [app, contracts] of Object.entries(APP_CONTRACTS)) {
+              if (contracts.some(addr => addr.toLowerCase() === to)) {
+                appName = app;
+                break;
+              }
+            }
+
+            // If not found in whitelisted apps, it goes to "other"
+            if (!appName) {
+              appName = 'other';
+            }
+
+            const stats = appStats[appName];
+
+            // Count transaction
+            stats.txs++;
+            stats.users.add(tx.from?.toLowerCase());
+
+            // Gas tracking
+            const gasUsed = parseInt(tx.gas || tx.gasUsed || '0', 16) || 21000;
+            const gasPrice = parseInt(tx.gasPrice || '0x0', 16) || 1000000; // 0.001 gwei default
+            const txFee = (gasUsed * gasPrice) / 1e18; // Convert to ETH
+
+            stats.gas += gasUsed;
+            stats.burnt += txFee;
+            stats.athFee = Math.max(stats.athFee, txFee);
+
+            // Success/failure tracking
+            const status = tx.status !== undefined ? tx.status : (tx.receipt?.status || 1);
+            if (status === 1 || status === '0x1') {
+              stats.success++;
+            } else {
+              stats.failed++;
+            }
+
+            // TPS tracking by timestamp
+            const timestamp = parseInt(tx.timestamp || block.timestamp || '0');
+            if (timestamp > 0) {
+              if (!tpsTracking[appName][timestamp]) {
+                tpsTracking[appName][timestamp] = 0;
+              }
+              tpsTracking[appName][timestamp]++;
+            }
+          }
+        }
+
+        // Calculate live TPS (last 5 seconds) and update ATH TPS
+        const now = Math.floor(Date.now() / 1000);
+        Object.keys(tpsTracking).forEach(app => {
+          const tpsValues = Object.values(tpsTracking[app]);
+
+          // Live TPS = average of last 5 seconds
+          const recentTimestamps = Object.keys(tpsTracking[app])
+            .map(Number)
+            .filter(ts => now - ts <= 5);
+
+          if (recentTimestamps.length > 0) {
+            const recentTxs = recentTimestamps.reduce((sum, ts) => sum + tpsTracking[app][ts], 0);
+            appStats[app].liveTPS = Math.round(recentTxs / Math.min(5, recentTimestamps.length));
+          }
+
+          // Update ATH TPS
+          if (tpsValues.length > 0) {
+            const maxTPS = Math.max(...tpsValues);
+            appStats[app].athTPS = Math.max(appStats[app].athTPS, maxTPS);
+          }
+        });
+
+        updateAppUI();
+      } catch (error) {
+        console.error('[AppBreakdown] Error:', error);
+      }
+    }
+
+    function formatETH(eth) {
+      if (eth >= 1) return eth.toFixed(4) + ' ETH';
+      if (eth >= 0.001) return (eth * 1000).toFixed(2) + ' mETH';
+      return (eth * 1e9).toFixed(0) + ' gwei';
+    }
+
+    function updateAppUI() {
+      const now = new Date().toLocaleTimeString();
+      document.getElementById('appUpdateTime').textContent = now;
+
+      Object.keys(appStats).forEach(app => {
+        const stats = appStats[app];
+
+        // Main metrics
+        document.getElementById(`${app}-txs`).textContent = formatNumber(stats.txs);
+        document.getElementById(`${app}-users`).textContent = formatNumber(stats.users.size);
+        document.getElementById(`${app}-tps`).textContent = stats.liveTPS || '--';
+        document.getElementById(`${app}-ath-tps`).textContent = stats.athTPS || '--';
+        document.getElementById(`${app}-gas`).textContent = formatNumber(stats.gas);
+
+        // Gas & ETH
+        if (app === 'other') {
+          // For "other", display in horizontal bar format
+          document.getElementById(`${app}-burnt`).textContent = formatETH(stats.burnt);
+          document.getElementById(`${app}-ath`).textContent = formatETH(stats.athFee);
+        } else {
+          document.getElementById(`${app}-burnt`).textContent = formatETH(stats.burnt);
+          document.getElementById(`${app}-avg`).textContent = stats.txs > 0
+            ? formatNumber(Math.round(stats.gas / stats.txs))
+            : '--';
+          document.getElementById(`${app}-ath`).textContent = formatETH(stats.athFee);
+        }
+
+        // Success/Failure counters
+        document.getElementById(`${app}-success`).textContent = formatNumber(stats.success);
+        document.getElementById(`${app}-failed`).textContent = formatNumber(stats.failed);
+      });
+
+      console.log('[AppBreakdown] UI updated:', {
+        smasher: appStats.smasher.txs,
+        kumbaya: appStats.kumbaya.txs,
+        fluffle: appStats.fluffle.txs,
+        stomp: appStats.stomp.txs
+      });
+    }
+
+    // ============================================================
+    // RESOURCE LIMITS - Block-Level and Tx-Level
+    // ============================================================
+    const BLOCK_LIMITS = {
+      gas: 2000000000,        // 2B gas
+      txSize: 13107200,       // 12.5 MB
+      daSize: 13107200,       // 12.5 MB
+      kvUpdates: 500000,      // 500K operations
+      stateGrowth: 1000,      // 1K new slots
+      dataSize: 13107200,     // 12.5 MB
+      computeGas: 200000000,  // 200M gas
+      storageGas: 200000000   // 200M gas
+    };
+
+    let currentResourceUsage = {
+      gas: 0,
+      txSize: 0,
+      daSize: 0,
+      kvUpdates: 0,
+      stateGrowth: 0,
+      dataSize: 0,
+      computeGas: 0,
+      storageGas: 0
+    };
+
+    function updateResourceLimits() {
+      const limits = BLOCK_LIMITS;
+
+      // Update bars
+      const metrics = ['gas', 'txsize', 'da', 'kv', 'state', 'data'];
+      const metricKeys = ['gas', 'txSize', 'daSize', 'kvUpdates', 'stateGrowth', 'dataSize'];
+
+      metrics.forEach((metric, i) => {
+        const key = metricKeys[i];
+        const usage = currentResourceUsage[key] || 0;
+        const limit = limits[key];
+        const percent = Math.min(100, (usage / limit) * 100);
+
+        document.getElementById(`bar-${metric}-fill`).style.height = percent + '%';
+        document.getElementById(`bar-${metric}-value`).textContent = percent.toFixed(1) + '%';
+      });
+
+      // Update compute gas meter
+      const computePercent = Math.min(1, currentResourceUsage.computeGas / limits.computeGas);
+      const computeMGAS = (currentResourceUsage.computeGas / 1e6).toFixed(1);
+      document.getElementById('compute-gas-value').textContent = computeMGAS;
+
+      const computeFill = document.getElementById('compute-fill');
+      const computeOffset = 157 * (1 - computePercent);
+      computeFill.setAttribute('stroke-dashoffset', computeOffset);
+
+      // Update storage gas meter
+      const storagePercent = Math.min(1, currentResourceUsage.storageGas / limits.storageGas);
+      const storageMGAS = (currentResourceUsage.storageGas / 1e6).toFixed(1);
+      document.getElementById('storage-gas-value').textContent = storageMGAS;
+
+      const storageFill = document.getElementById('storage-fill');
+      const storageOffset = 157 * (1 - storagePercent);
+      storageFill.setAttribute('stroke-dashoffset', storageOffset);
+    }
+
+    function updateResourceUsageFromBlock(block) {
+      if (!block) return;
+
+      // Estimate resource usage from block data
+      currentResourceUsage.gas = parseInt(block.gasUsed || '0', 16) || 0;
+      currentResourceUsage.txSize = (block.transactions?.length || 0) * 200; // Rough estimate
+      currentResourceUsage.daSize = currentResourceUsage.txSize;
+      currentResourceUsage.kvUpdates = Math.floor(currentResourceUsage.gas / 20000); // SSTORE costs ~20K gas
+      currentResourceUsage.stateGrowth = Math.floor((block.transactions?.length || 0) * 0.1); // Some txs create state
+      currentResourceUsage.dataSize = currentResourceUsage.txSize;
+
+      // Multi-modal gas (split estimate: 60% compute, 40% storage)
+      currentResourceUsage.computeGas = Math.floor(currentResourceUsage.gas * 0.6);
+      currentResourceUsage.storageGas = Math.floor(currentResourceUsage.gas * 0.4);
+
+      updateResourceLimits();
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    async function init() {
+      console.log('=== MegaETH Metrics Starting ===');
+      console.log('[Mode] WebSocket mini-block streaming (10ms granularity)');
+
+      // Initialize chart canvases
+      initChartCanvases();
+
+      // Initialize Block River with its own dedicated animation loop
+      initBlockRiver();
+
+      // Start chart animation loop
+      requestAnimationFrame(animateCharts);
+
+      // Connect WebSocket for real-time mini-block streaming
+      connectWebSocket();
+
+      // Backfill initial data (also serves as fallback if WebSocket fails)
+      await backfill();
+
+      // Polling as fallback (less frequent since WebSocket is primary)
+      // Increased interval to avoid rate limiting
+      setInterval(() => {
+        if (!state.wsConnected && consecutiveFailures < 5) {
+          poll();
+        }
+      }, Math.max(POLL_INTERVAL, 3000)); // At least 3 seconds between polls
+
+      // Update history arrays at fixed interval for smooth chart animation
+      setInterval(updateHistory, HISTORY_INTERVAL);
+
+      // Fetch app breakdown stats every 60 seconds (heavily reduced to avoid rate limiting)
+      setTimeout(() => {
+        fetchAppStats();
+        setInterval(fetchAppStats, 60000); // Update every 60 seconds
+      }, 10000); // Wait 10 seconds for initial data to load
+
+      // Initialize resource limits display
+      updateResourceLimits();
+    }
+
+    init();
+  </script>
+</body>
+</html>

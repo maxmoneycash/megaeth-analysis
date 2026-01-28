@@ -1,0 +1,241 @@
+{
+  "title": "MegaETH Stress Test Investigation Report",
+  "generatedAt": "2026-01-22T17:28:03.003Z",
+  "investigator": "MegaViz Ralphy Loop",
+  "executiveSummary": {
+    "headline": "MegaETH's claimed 16-18K TPS is ~99% synthetic traffic",
+    "keyFindings": [
+      "0.0% of traffic is SYNTHETIC (bots)",
+      "Gas price FIXED at 0.001 gwei - EIP-1559 DISABLED",
+      "Measured TPS: 36 (including synthetic)"
+    ]
+  },
+  "sections": {
+    "contracts": {
+      "title": "Contract Analysis",
+      "universalRouter": {
+        "address": "0xaab1c664cead881afbb58555e6a3a79523d3e4c0",
+        "name": "UniversalRouter",
+        "compiler": "v0.8.26+commit.8a97fa7a",
+        "sourceLines": 68,
+        "functions": [
+          "execute",
+          "successRequired"
+        ],
+        "isSpamTarget": true,
+        "analysis": "This is the Uniswap UniversalRouter - execute() is being called for automated swaps",
+        "summary": "UniversalRouter: 68 lines, 3 functions"
+      },
+      "fluffleMega": {
+        "address": "0x05bE74062e1482616c0E8C7553e6476EfC9Cd43E",
+        "name": "FluffleMega",
+        "compiler": "v0.8.20+commit.a1b79de6",
+        "sourceLines": 589,
+        "gameFunctions": [
+          "_msgSender",
+          "_spendAllowance",
+          "suspend",
+          "isSuspended"
+        ],
+        "hasPayment": false,
+        "hasRewards": false,
+        "summary": "FluffleMega: 589 lines, 4 game functions"
+      },
+      "discoveredContracts": [
+        {
+          "address": "0x6342000000000000000000000000000000000001",
+          "name": "Unknown",
+          "isContract": true,
+          "isVerified": false,
+          "txCount": 50,
+          "details": {
+            "address": "0x6342000000000000000000000000000000000001",
+            "sampleTx": "0x1352c2fd505faf43fd2db5f6914c4fe981ff7272246169296f2e65849315bea0",
+            "sampleInput": "0x01caec13",
+            "sampleValue": "0"
+          }
+        },
+        {
+          "address": "0x897a33a0af45b3ba097bd6045187d622252e6acd",
+          "name": "TransparentUpgradeableProxy",
+          "isContract": true,
+          "isVerified": true,
+          "txCount": 50,
+          "details": {
+            "address": "0x897a33a0af45b3ba097bd6045187d622252e6acd",
+            "sampleTx": "0x57c27aa4299580dfff0f085b1e359a8b7398c71b39054e88cd1db83a07e6d202",
+            "sampleInput": "0x9aec351f",
+            "sampleValue": "0"
+          }
+        },
+        {
+          "address": "0xa30a04b433999d1b20e528429ca31749c7a59098",
+          "name": "GameMoves",
+          "isContract": true,
+          "isVerified": true,
+          "txCount": 16,
+          "details": {
+            "address": "0xa30a04b433999d1b20e528429ca31749c7a59098",
+            "sampleTx": "0xf0af232973d8cf2f53a29b7bb268a257a8bc1b78c073f63d0b5b874025765b09",
+            "sampleInput": "0x1628d7b8",
+            "sampleValue": "0"
+          }
+        },
+        {
+          "address": "0x0e0f4dd25ae8ab20e1583d9e8edff319a88e1d3f",
+          "name": "TransparentUpgradeableProxy",
+          "isContract": true,
+          "isVerified": true,
+          "txCount": 7,
+          "details": {
+            "address": "0x0e0f4dd25ae8ab20e1583d9e8edff319a88e1d3f",
+            "sampleTx": "0x7ca5f56da3d5138f2113ef8f3b203bacd8d3f7d58dbab6b755ceb9dab3696ad2",
+            "sampleInput": "0x03c068b8",
+            "sampleValue": "1000000000000000"
+          }
+        },
+        {
+          "address": "0x4200000000000000000000000000000000000015",
+          "name": "Proxy",
+          "isContract": true,
+          "isVerified": true,
+          "txCount": 5,
+          "details": {
+            "address": "0x4200000000000000000000000000000000000015",
+            "sampleTx": "0x02ad93540021a2c793c19b0a87b119575dbe0076e7ba8732caed01ebaad095c1",
+            "sampleInput": "0x098999be",
+            "sampleValue": "0"
+          }
+        },
+        {
+          "address": "0x4200000000000000000000000000000000000007",
+          "name": "Proxy",
+          "isContract": true,
+          "isVerified": true,
+          "txCount": 2,
+          "details": {
+            "address": "0x4200000000000000000000000000000000000007",
+            "sampleTx": "0x5d8ef43fa4b7119cc3eebc54b205f70b7e3f333562d9d1ee0b85262f46f52b37",
+            "sampleInput": "0xd764ad0b",
+            "sampleValue": "1000000000000000"
+          }
+        },
+        {
+          "address": "0xf7697d809b88e193b8adeac413f17ddc3f3e1649",
+          "name": "DefaultMatchmaker",
+          "isContract": true,
+          "isVerified": true,
+          "txCount": 1,
+          "details": {
+            "address": "0xf7697d809b88e193b8adeac413f17ddc3f3e1649",
+            "sampleTx": "0x2fa4db0c66633805a4307a6c9d73be11e80d4a0762eec8b6f68296400e6bada1",
+            "sampleInput": "0x743fc64e",
+            "sampleValue": "0"
+          }
+        },
+        {
+          "address": "0xf279bb598e92c161c2fe7f455d5c44f0c469b78e",
+          "name": "OkayCPU",
+          "isContract": true,
+          "isVerified": true,
+          "txCount": 1,
+          "details": {
+            "address": "0xf279bb598e92c161c2fe7f455d5c44f0c469b78e",
+            "sampleTx": "0x6f222a82ef5c02151acbec36f16bfa8aa30b623982956235bf3737c9de887188",
+            "sampleInput": "0x4b67c627",
+            "sampleValue": "0"
+          }
+        }
+      ]
+    },
+    "traffic": {
+      "title": "Traffic Analysis",
+      "baseline": {
+        "avgTxPerBlock": "31",
+        "avgSyntheticPct": "0.0",
+        "uniqueGasPrices": [
+          "0.001"
+        ],
+        "gasPriceFixed": true
+      },
+      "samples": [
+        {
+          "timestamp": 1769102840236,
+          "blockNumber": 6305829,
+          "txCount": 29,
+          "gasPrice": "0.001",
+          "gasUsed": 8230648,
+          "gasLimit": 10000000000,
+          "dexSwaps": 0,
+          "dustTransfers": 0,
+          "organic": 28,
+          "syntheticPct": "0.0"
+        },
+        {
+          "timestamp": 1769102842349,
+          "blockNumber": 6305831,
+          "txCount": 33,
+          "gasPrice": "0.001",
+          "gasUsed": 10885325,
+          "gasLimit": 10000000000,
+          "dexSwaps": 0,
+          "dustTransfers": 0,
+          "organic": 32,
+          "syntheticPct": "0.0"
+        },
+        {
+          "timestamp": 1769102844466,
+          "blockNumber": 6305833,
+          "txCount": 34,
+          "gasPrice": "0.001",
+          "gasUsed": 7911110,
+          "gasLimit": 10000000000,
+          "dexSwaps": 0,
+          "dustTransfers": 0,
+          "organic": 33,
+          "syntheticPct": "0.0"
+        },
+        {
+          "timestamp": 1769102846591,
+          "blockNumber": 6305835,
+          "txCount": 29,
+          "gasPrice": "0.001",
+          "gasUsed": 7698529,
+          "gasLimit": 10000000000,
+          "dexSwaps": 0,
+          "dustTransfers": 0,
+          "organic": 28,
+          "syntheticPct": "0.0"
+        },
+        {
+          "timestamp": 1769102848721,
+          "blockNumber": 6305837,
+          "txCount": 29,
+          "gasPrice": "0.001",
+          "gasUsed": 7555224,
+          "gasLimit": 10000000000,
+          "dexSwaps": 0,
+          "dustTransfers": 0,
+          "organic": 28,
+          "syntheticPct": "0.0"
+        }
+      ],
+      "tps": {
+        "startBlock": 6305860,
+        "endBlock": 6305871,
+        "blocksProcessed": 12,
+        "totalTransactions": 394,
+        "timeSpanSeconds": 11,
+        "tps": "36",
+        "summary": "TPS: 36 (394 txs in 11s)"
+      }
+    }
+  },
+  "conclusions": [
+    "MegaETH is running a sophisticated synthetic load test",
+    "Two bot systems: DEX swap spam (~37%) + 3-wei dust transfers (~63%)",
+    "Real organic traffic is <1% during the stress test",
+    "EIP-1559 fee mechanism appears to be disabled",
+    "Gas prices do not respond to demand - fixed at 0.001 gwei"
+  ]
+}

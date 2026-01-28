@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MegaViz - Ring Radar (Live)</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "pixi.js": "https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.mjs"
+        }
+      }
+    </script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0f; font-family: monospace; }
+      #container { width: 100%; height: 100%; }
+      #status {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        color: #445566;
+        font-size: 11px;
+        z-index: 100;
+      }
+      #status.connected { color: #44aa44; }
+      #status.error { color: #aa4444; }
+      #stats {
+        position: fixed;
+        bottom: 10px;
+        left: 10px;
+        color: #445566;
+        font-size: 10px;
+        z-index: 100;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <div id="status">Connecting...</div>
+    <div id="stats"></div>
+
+    <script type="module">
+      import { Application, Graphics, Text, TextStyle, Container } from 'pixi.js';
+
+      console.log('=== MEGAVIZ RING RADAR + CHARTS STARTING ===');
+
+      // ============================================
+      // CONFIGURATION
+      // ============================================
+      const WS_URL = 'ws://localhost:3001/ws/blocks';
+      const INITIAL_BLOCKS_URL = 'http://localhost:3001/blocks/recent?count=100';
+
+      // Ring radar config
+      const ENDPOINTS = [
+        { label: 'High Gas',           angle: 0,   metric: 'gas',         isHigh: true },
+        { label: 'High Tx Size',       angle: 30,  metric: 'txSize',      isHigh: true },
+        { label: 'High DA',            angle: 60,  metric: 'daSize',      isHigh: true },
+        { label: 'High KV Updates',    angle: 90,  metric: 'kvUpdates',   isHigh: true },
+        { label: 'High State Growth',  angle: 120, metric: 'stateGrowth', isHigh: true },
+        { label: 'High Data Size',     angle: 150, metric: 'dataSize',    isHigh: true },
+        { label: 'Low Gas',            angle: 180, metric: 'gas',         isHigh: false },
+        { label: 'Low Tx Size',        angle: 210, metric: 'txSize',      isHigh: false },
+        { label: 'Low DA',             angle: 240, metric: 'daSize',      isHigh: false },
+        { label: 'Low KV Updates',     angle: 270, metric: 'kvUpdates',   isHigh: false },
+        { label: 'Low State Growth',   angle: 300, metric: 'stateGrowth', isHigh: false },
+        { label: 'Low Data Size',      angle: 330, metric: 'dataSize',    isHigh: false },
+      ];
+
+      const METRIC_KEYS = ['gas', 'txSize', 'daSize', 'kvUpdates', 'stateGrowth', 'dataSize'];
+      const BAR_LABELS = ['Gas', 'TxSize', 'DA', 'KV', 'State', 'Data'];
+
+      const minRadius = 50;
+      const maxRadius = 180;
+      const gridRadius = 210;
+      const trailCount = 10;
+      const LERP_FACTOR = 0.035;
+
+      // ============================================
+      // ABSOLUTE CAPACITY LIMITS - MegaETH REX Specification (Production)
+      // Source: mega evm/docs/BLOCK_AND_TX_LIMITS.md
+      // These are the maximum block-level limits that define 100% capacity
+      // ============================================
+      const CAPACITY_LIMITS = {
+        gas: 2000000000,           // 2B gas - Total block gas limit
+        computeGas: 200000000,     // 200M gas - Compute gas limit
+        storageGas: 200000000,     // ~200M gas - Storage gas (implied from dual model)
+        txSize: 13107200,          // 12.5 MB - Block transactions encode size limit
+        daSize: 13107200,          // 12.5 MB - Data availability size limit (estimated)
+        dataSize: 13107200,        // 12.5 MB - Block transactions data limit
+        kvUpdates: 500000,         // 500K operations - KV update limit
+        stateGrowth: 1000          // 1K new slots - State growth limit
+      };
+
+      // ============================================
+      // CAPACITY-BASED SCALING FUNCTION
+      // Maps raw value to 0-1 scale based on absolute capacity limits
+      // 0.0 = 0% capacity, 0.5 = 50% capacity, 1.0 = 100% capacity
+      // Green: 0-33%, Yellow: 33-66%, Red: 66-100%
+      // ============================================
+      function valueToCapacityScale(value, metric) {
+        const limit = CAPACITY_LIMITS[metric];
+        if (!limit) return 0.0;
+
+        // Calculate % of capacity (0.0 to 1.0+)
+        const utilization = value / limit;
+
+        // Clamp to max 100% (1.0) for visualization
+        return Math.min(utilization, 1.0);
+      }
+
+      // ============================================
+      // STATE
+      // ============================================
+      // Ring radar display values (0-1 scale based on capacity utilization)
+      // 0.0 = 0% capacity, 0.5 = 50% capacity, 1.0 = 100% capacity
+      let currentDisplay = { gas: 0.0, txSize: 0.0, daSize: 0.0, kvUpdates: 0.0, stateGrowth: 0.0, dataSize: 0.0 };
+      let targetDisplay = { gas: 0.0, txSize: 0.0, daSize: 0.0, kvUpdates: 0.0, stateGrowth: 0.0, dataSize: 0.0 };
+      let trailHistory = [];
+      let phase = 0;
+      let blockCount = 0;
+
+      // Equalizer bar utilization (0-1 = % of capacity)
+      let peakUtilization = { gas: 0, txSize: 0, daSize: 0, kvUpdates: 0, stateGrowth: 0, dataSize: 0 };
+      let targetPeakUtil = { gas: 0, txSize: 0, daSize: 0, kvUpdates: 0, stateGrowth: 0, dataSize: 0 };
+
+      // Raw values for hover display
+      let rawValues = { gas: 0, txSize: 0, daSize: 0, kvUpdates: 0, stateGrowth: 0, dataSize: 0, computeGas: 0, storageGas: 0 };
+
+      // Gas throughput tracking for flowing line (MGAS/s)
+      let gasHistory = [];  // {timestamp, gas, mgasPerSec}
+      const GAS_HISTORY_MAX = 100;  // Keep last 100 samples for smooth line
+
+      // Gauge values for compute and storage gas (0-1 scale based on capacity)
+      let computeGasValue = 0.0;
+      let storageGasValue = 0.0;
+      let targetComputeGas = 0.0;
+      let targetStorageGas = 0.0;
+
+      // ============================================
+      // PIXI.JS SETUP - Single app for everything
+      // ============================================
+      const container = document.getElementById('container');
+      const statusEl = document.getElementById('status');
+      const statsEl = document.getElementById('stats');
+
+      const app = new Application();
+      await app.init({
+        width: window.innerWidth,
+        height: window.innerHeight,
+        backgroundColor: 0x0a0a0f,
+        antialias: true,
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true,
+      });
+      container.appendChild(app.canvas);
+
+      // Create layers
+      const gridGraphics = new Graphics();
+      const ribbonGraphics = new Graphics();
+      const labelsContainer = new Container();
+      const eqBarsGraphics = new Graphics();
+      const eqLineGraphics = new Graphics();  // Gas throughput line
+      const eqLabelsContainer = new Container();
+      const gaugesGraphics = new Graphics();  // Gauge charts
+      const gaugesLabelsContainer = new Container();
+
+      app.stage.addChild(gridGraphics);
+      app.stage.addChild(ribbonGraphics);
+      app.stage.addChild(labelsContainer);
+      app.stage.addChild(eqBarsGraphics);
+      app.stage.addChild(eqLineGraphics);
+      app.stage.addChild(eqLabelsContainer);
+      app.stage.addChild(gaugesGraphics);
+      app.stage.addChild(gaugesLabelsContainer);
+
+      // Create ring radar labels
+      const labelStyle = new TextStyle({
+        fontFamily: 'monospace',
+        fontSize: 10,
+        fill: 0x445566,
+        align: 'center',
+      });
+
+      for (const ep of ENDPOINTS) {
+        const angleRad = (ep.angle - 90) * Math.PI / 180;
+        const label = new Text({ text: ep.label, style: labelStyle.clone() });
+        label.anchor.set(0.5);
+        label.x = Math.cos(angleRad) * (gridRadius + 35);
+        label.y = Math.sin(angleRad) * (gridRadius + 35);
+        label.userData = { endpoint: ep };
+        labelsContainer.addChild(label);
+      }
+
+      // Create equalizer bar labels (matching ring radar style)
+      const barLabelStyle = new TextStyle({
+        fontFamily: 'monospace',
+        fontSize: 10,
+        fill: 0x445566,
+        align: 'center',
+      });
+
+      const barLabels = [];
+      for (let i = 0; i < 6; i++) {
+        const label = new Text({ text: BAR_LABELS[i], style: barLabelStyle.clone() });
+        label.anchor.set(0.5);
+        barLabels.push(label);
+        eqLabelsContainer.addChild(label);
+      }
+
+      // Create MGAS/s label for the flowing line
+      const mgasLabel = new Text({
+        text: 'MGAS/s',
+        style: new TextStyle({
+          fontFamily: 'monospace',
+          fontSize: 9,
+          fill: 0x44ccaa,
+          align: 'left',
+        })
+      });
+      mgasLabel.anchor.set(0, 0.5);
+      eqLabelsContainer.addChild(mgasLabel);
+
+      // Create gauge labels
+      const computeGaugeLabel = new Text({
+        text: 'Compute Gas',
+        style: new TextStyle({
+          fontFamily: 'monospace',
+          fontSize: 11,
+          fill: 0x445566,
+          align: 'center',
+        })
+      });
+      computeGaugeLabel.anchor.set(0.5);
+      gaugesLabelsContainer.addChild(computeGaugeLabel);
+
+      const computeGaugeValue = new Text({
+        text: '0',
+        style: new TextStyle({
+          fontFamily: 'monospace',
+          fontSize: 32,
+          fill: 0xffffff,
+          align: 'center',
+          fontWeight: 'bold'
+        })
+      });
+      computeGaugeValue.anchor.set(0.5);
+      gaugesLabelsContainer.addChild(computeGaugeValue);
+
+      const storageGaugeLabel = new Text({
+        text: 'Storage Gas',
+        style: new TextStyle({
+          fontFamily: 'monospace',
+          fontSize: 11,
+          fill: 0x445566,
+          align: 'center',
+        })
+      });
+      storageGaugeLabel.anchor.set(0.5);
+      gaugesLabelsContainer.addChild(storageGaugeLabel);
+
+      const storageGaugeValue = new Text({
+        text: '0',
+        style: new TextStyle({
+          fontFamily: 'monospace',
+          fontSize: 32,
+          fill: 0xffffff,
+          align: 'center',
+          fontWeight: 'bold'
+        })
+      });
+      storageGaugeValue.anchor.set(0.5);
+      gaugesLabelsContainer.addChild(storageGaugeValue);
+
+      // ============================================
+      // HELPER FUNCTIONS
+      // ============================================
+      function getTrailColor(index, total) {
+        const t = index / (total - 1 || 1);
+        if (t < 0.3) return lerpColor(0xffff88, 0xffcc44, t / 0.3);
+        if (t < 0.6) return lerpColor(0xffcc44, 0xff7722, (t - 0.3) / 0.3);
+        return lerpColor(0xff7722, 0x992200, (t - 0.6) / 0.4);
+      }
+
+      function lerpColor(c1, c2, t) {
+        const r1 = (c1 >> 16) & 0xff, g1 = (c1 >> 8) & 0xff, b1 = c1 & 0xff;
+        const r2 = (c2 >> 16) & 0xff, g2 = (c2 >> 8) & 0xff, b2 = c2 & 0xff;
+        return (Math.round(r1 + (r2 - r1) * t) << 16) |
+               (Math.round(g1 + (g2 - g1) * t) << 8) |
+               Math.round(b1 + (b2 - b1) * t);
+      }
+
+      function getExtension(metrics, ep) {
+        const value = metrics[ep.metric] || 0.5;
+        const clamped = Math.max(0, Math.min(1, value));
+        return ep.isHigh ? clamped : (1 - clamped);
+      }
+
+      function calculateBlobShape(cx, cy, metrics, phaseOffset) {
+        const controlPoints = [];
+        for (const ep of ENDPOINTS) {
+          const angleRad = (ep.angle - 90) * Math.PI / 180;
+          const extension = getExtension(metrics, ep);
+          const baseRadius = minRadius + (maxRadius - minRadius) * extension;
+
+          // Organic wobble
+          const wobble1 = Math.sin(phaseOffset * 0.5 + ep.angle * 0.1) * 6;
+          const wobble2 = Math.sin(phaseOffset * 0.8 + ep.angle * 0.15 + 1.5) * 3;
+          const wobble3 = Math.sin(phaseOffset * 0.3 + ep.angle * 0.05 + 3.0) * 2;
+          const wobble = wobble1 + wobble2 + wobble3;
+
+          const radius = baseRadius + wobble;
+          controlPoints.push({
+            x: cx + Math.cos(angleRad) * radius,
+            y: cy + Math.sin(angleRad) * radius,
+          });
+        }
+        return smoothCurve(controlPoints);
+      }
+
+      function smoothCurve(points) {
+        const result = [];
+        const segments = 12;
+        for (let i = 0; i < points.length; i++) {
+          const p0 = points[(i - 1 + points.length) % points.length];
+          const p1 = points[i];
+          const p2 = points[(i + 1) % points.length];
+          const p3 = points[(i + 2) % points.length];
+          for (let t = 0; t < segments; t++) {
+            const s = t / segments;
+            const s2 = s * s, s3 = s2 * s;
+            result.push({
+              x: 0.5 * (2 * p1.x + (-p0.x + p2.x) * s + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * s2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * s3),
+              y: 0.5 * (2 * p1.y + (-p0.y + p2.y) * s + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * s2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * s3),
+            });
+          }
+        }
+        return result;
+      }
+
+      // ============================================
+      // DRAW FUNCTIONS - PixiJS 8 API
+      // ============================================
+      function drawGrid(cx, cy) {
+        gridGraphics.clear();
+
+        // Draw concentric circles
+        for (let i = 1; i <= 4; i++) {
+          const r = minRadius + (maxRadius - minRadius) * (i / 4);
+          gridGraphics.circle(cx, cy, r);
+        }
+        gridGraphics.stroke({ width: 1, color: 0x1a1a2a, alpha: 0.6 });
+
+        // Draw radial lines
+        for (const ep of ENDPOINTS) {
+          const angleRad = (ep.angle - 90) * Math.PI / 180;
+          gridGraphics.moveTo(cx, cy);
+          gridGraphics.lineTo(cx + Math.cos(angleRad) * gridRadius, cy + Math.sin(angleRad) * gridRadius);
+        }
+        gridGraphics.stroke({ width: 1, color: 0x1a1a2a, alpha: 0.4 });
+      }
+
+      function drawShape(graphics, shape, color, alpha, lineWidth) {
+        if (!shape || shape.length < 2) return;
+        graphics.moveTo(shape[0].x, shape[0].y);
+        for (let i = 1; i < shape.length; i++) {
+          graphics.lineTo(shape[i].x, shape[i].y);
+        }
+        graphics.lineTo(shape[0].x, shape[0].y);
+        graphics.stroke({ width: lineWidth, color, alpha });
+      }
+
+      function drawGauges() {
+        const screenWidth = app.screen.width;
+        const screenHeight = app.screen.height;
+
+        // Gauges positioned in bottom-right (right side, bottom half)
+        const gaugesStartX = screenWidth * 0.55;
+        const gaugesEndX = screenWidth - 40;
+        const gaugesWidth = gaugesEndX - gaugesStartX;
+        const gaugesTop = screenHeight / 2 + 30;
+        const gaugesBottom = screenHeight - 60;
+        const gaugesHeight = gaugesBottom - gaugesTop;
+
+        gaugesGraphics.clear();
+
+        // Each gauge gets half the width
+        const gaugeWidth = gaugesWidth / 2;
+        const gaugeRadius = Math.min(gaugeWidth * 0.4, gaugesHeight * 0.5);
+
+        // Draw compute gas gauge (left)
+        const computeCenterX = gaugesStartX + gaugeWidth / 2;
+        const computeCenterY = gaugesTop + gaugesHeight * 0.6;
+        drawGauge(computeCenterX, computeCenterY, gaugeRadius, computeGasValue);
+
+        // Update compute gas value display
+        const computeMGAS = (rawValues.computeGas / 1e6).toFixed(1);
+        computeGaugeValue.text = computeMGAS;
+        computeGaugeValue.x = computeCenterX;
+        computeGaugeValue.y = computeCenterY;
+
+        // Add MGAS unit label if it doesn't exist
+        if (!computeGaugeValue.userData) computeGaugeValue.userData = {};
+        if (!computeGaugeValue.userData.unitLabel) {
+          const unitLabel = new Text({
+            text: 'MGAS',
+            style: new TextStyle({
+              fontFamily: 'monospace',
+              fontSize: 12,
+              fill: 0x888888,
+              align: 'center',
+            })
+          });
+          unitLabel.anchor.set(0.5);
+          computeGaugeValue.userData.unitLabel = unitLabel;
+          gaugesLabelsContainer.addChild(unitLabel);
+        }
+        computeGaugeValue.userData.unitLabel.x = computeCenterX;
+        computeGaugeValue.userData.unitLabel.y = computeCenterY + 35;
+
+        computeGaugeLabel.x = computeCenterX;
+        computeGaugeLabel.y = computeCenterY - gaugeRadius - 10;
+
+        // Draw storage gas gauge (right)
+        const storageCenterX = gaugesStartX + gaugeWidth * 1.5;
+        const storageCenterY = gaugesTop + gaugesHeight * 0.6;
+        drawGauge(storageCenterX, storageCenterY, gaugeRadius, storageGasValue);
+
+        // Update storage gas value display
+        const storageMGAS = (rawValues.storageGas / 1e6).toFixed(1);
+        storageGaugeValue.text = storageMGAS;
+        storageGaugeValue.x = storageCenterX;
+        storageGaugeValue.y = storageCenterY;
+
+        // Add MGAS unit label if it doesn't exist
+        if (!storageGaugeValue.userData) storageGaugeValue.userData = {};
+        if (!storageGaugeValue.userData.unitLabel) {
+          const unitLabel = new Text({
+            text: 'MGAS',
+            style: new TextStyle({
+              fontFamily: 'monospace',
+              fontSize: 12,
+              fill: 0x888888,
+              align: 'center',
+            })
+          });
+          unitLabel.anchor.set(0.5);
+          storageGaugeValue.userData.unitLabel = unitLabel;
+          gaugesLabelsContainer.addChild(unitLabel);
+        }
+        storageGaugeValue.userData.unitLabel.x = storageCenterX;
+        storageGaugeValue.userData.unitLabel.y = storageCenterY + 35;
+
+        storageGaugeLabel.x = storageCenterX;
+        storageGaugeLabel.y = storageCenterY - gaugeRadius - 10;
+      }
+
+      function drawGauge(cx, cy, radius, value) {
+        // Gauge arc facing upward vertically
+        // Spans from 135 degrees to 405 degrees (270 degrees total)
+        const startAngle = Math.PI * 0.75;   // 135 degrees (top-left)
+        const endAngle = Math.PI * 2.25;     // 405 degrees (top-right)
+        const totalAngle = endAngle - startAngle;
+
+        const numSegments = 12;  // 12 segments like the reference image
+        const segmentAngle = totalAngle / numSegments;
+        const segmentGap = 0.05;  // Small gap between segments
+
+        const innerRadius = radius * 0.75;
+        const outerRadius = radius;
+
+        for (let i = 0; i < numSegments; i++) {
+          const segmentStart = startAngle + i * segmentAngle;
+          const segmentEnd = segmentStart + segmentAngle - segmentGap;
+
+          // Determine segment color based on position (green -> yellow -> red)
+          const t = i / (numSegments - 1);  // 0 to 1
+          let segmentColor;
+          if (t < 0.5) {
+            // Green to yellow
+            segmentColor = lerpColor(0x44aa44, 0xffff00, t / 0.5);
+          } else {
+            // Yellow to red
+            segmentColor = lerpColor(0xffff00, 0xff4444, (t - 0.5) / 0.5);
+          }
+
+          // Determine if this segment should be lit up (based on value)
+          const segmentThreshold = (i + 1) / numSegments;
+          const isActive = value >= segmentThreshold;
+
+          // Dim inactive segments
+          if (!isActive) {
+            // Extract RGB components
+            const r = (segmentColor >> 16) & 0xff;
+            const g = (segmentColor >> 8) & 0xff;
+            const b = segmentColor & 0xff;
+            // Dim to 20%
+            segmentColor = ((r * 0.2) << 16) | ((g * 0.2) << 8) | (b * 0.2);
+          }
+
+          // Draw arc segment
+          drawArcSegment(cx, cy, innerRadius, outerRadius, segmentStart, segmentEnd, segmentColor);
+        }
+      }
+
+      function drawArcSegment(cx, cy, innerR, outerR, startAngle, endAngle, color) {
+        const steps = 10;
+        const angleStep = (endAngle - startAngle) / steps;
+
+        // Outer arc
+        for (let i = 0; i <= steps; i++) {
+          const angle = startAngle + i * angleStep;
+          const x = cx + Math.cos(angle) * outerR;
+          const y = cy + Math.sin(angle) * outerR;
+          if (i === 0) {
+            gaugesGraphics.moveTo(x, y);
+          } else {
+            gaugesGraphics.lineTo(x, y);
+          }
+        }
+
+        // Inner arc (reverse direction)
+        for (let i = steps; i >= 0; i--) {
+          const angle = startAngle + i * angleStep;
+          const x = cx + Math.cos(angle) * innerR;
+          const y = cy + Math.sin(angle) * innerR;
+          gaugesGraphics.lineTo(x, y);
+        }
+
+        // Close path
+        const x0 = cx + Math.cos(startAngle) * outerR;
+        const y0 = cy + Math.sin(startAngle) * outerR;
+        gaugesGraphics.lineTo(x0, y0);
+
+        // Fill the segment
+        gaugesGraphics.fill({ color: color });
+      }
+
+      function drawEqualizer() {
+        const screenWidth = app.screen.width;
+        const screenHeight = app.screen.height;
+
+        // Equalizer positioned in top-right (right side, top half)
+        const eqStartX = screenWidth * 0.55;
+        const eqEndX = screenWidth - 40;
+        const eqWidth = eqEndX - eqStartX;
+        const eqTop = 60;
+        const eqBottom = screenHeight / 2 - 30;  // Top half of right side
+        const maxBarHeight = eqBottom - eqTop;
+
+        const barCount = 6;
+        const barWidth = Math.min(70, (eqWidth - 70) / barCount);
+        const gap = (eqWidth - barWidth * barCount) / (barCount + 1);
+
+        eqBarsGraphics.clear();
+
+        // Draw each bar
+        for (let i = 0; i < barCount; i++) {
+          const metric = METRIC_KEYS[i];
+          const utilization = peakUtilization[metric] || 0;
+          const barX = eqStartX + gap + i * (barWidth + gap);
+
+          // Number of segments
+          const numSegments = 50;
+          const segmentHeight = maxBarHeight / numSegments;
+
+          for (let j = 0; j < numSegments; j++) {
+            const segY = eqBottom - ((j + 1) * segmentHeight);
+            const t = j / numSegments; // 0 at bottom, 1 at top
+
+            // Color gradient based on percentile position: green -> yellow -> red
+            let r, g, b;
+            if (t < 0.5) {
+              // Bottom half (P0-P50): green to yellow
+              const tt = t / 0.5;
+              r = Math.round(68 + 187 * tt);   // 68 -> 255
+              g = Math.round(170 + 85 * tt);   // 170 -> 255
+              b = Math.round(68 - 68 * tt);    // 68 -> 0
+            } else {
+              // Top half (P50-P100): yellow to red
+              const tt = (t - 0.5) / 0.5;
+              r = 255;                          // stays 255
+              g = Math.round(255 - 187 * tt);   // 255 -> 68
+              b = Math.round(136 * (1 - tt));   // 136 -> 0
+            }
+
+            // Dim if above utilization (lights off)
+            const isActive = t < utilization;
+            if (!isActive) {
+              r = Math.round(r * 0.15);
+              g = Math.round(g * 0.15);
+              b = Math.round(b * 0.15);
+            }
+
+            const color = (r << 16) | (g << 8) | b;
+
+            // Draw segment using PixiJS 8 API
+            eqBarsGraphics.rect(barX, segY, barWidth, segmentHeight - 1);
+            eqBarsGraphics.fill({ color: color });
+          }
+
+          // Position label
+          barLabels[i].x = barX + barWidth / 2;
+          barLabels[i].y = eqBottom + 25;
+        }
+
+        // Draw flowing gas throughput line (MGAS/s)
+        eqLineGraphics.clear();
+
+        if (gasHistory.length > 2) {
+          // P50 baseline (middle of equalizer)
+          const p50Y = eqTop + maxBarHeight / 2;
+
+          // Calculate average MGAS/s for scaling
+          const avgMGAS = gasHistory.reduce((sum, h) => sum + h.mgasPerSec, 0) / gasHistory.length;
+          const maxMGAS = Math.max(...gasHistory.map(h => h.mgasPerSec), 1);
+
+          // Draw the flowing line across the equalizer width
+          const lineWidth = eqEndX - eqStartX;
+          const samplesNeeded = Math.min(gasHistory.length, 80);  // Use more samples for smoothness
+          const recentHistory = gasHistory.slice(-samplesNeeded);
+
+          // Generate smooth points with interpolation
+          const points = [];
+          const numInterpolatedPoints = 120;  // More points = smoother curve
+
+          for (let i = 0; i < numInterpolatedPoints; i++) {
+            const t = i / (numInterpolatedPoints - 1);
+            const x = eqStartX + lineWidth * t;
+
+            // Find the corresponding sample in history (with interpolation)
+            const sampleIndex = t * (recentHistory.length - 1);
+            const idx1 = Math.floor(sampleIndex);
+            const idx2 = Math.min(idx1 + 1, recentHistory.length - 1);
+            const frac = sampleIndex - idx1;
+
+            // Interpolate between two samples
+            const sample1 = recentHistory[idx1] || { mgasPerSec: 0 };
+            const sample2 = recentHistory[idx2] || { mgasPerSec: 0 };
+            const mgasPerSec = sample1.mgasPerSec + (sample2.mgasPerSec - sample1.mgasPerSec) * frac;
+
+            const mgasNormalized = mgasPerSec / (maxMGAS || 1);  // 0-1 scale
+
+            // Vertical offset from P50 based on MGAS/s
+            const waveHeight = maxBarHeight * 0.2;  // Max wave amplitude (20% of height)
+            const yOffset = (mgasNormalized - 0.5) * waveHeight;
+
+            // Add smooth organic wave motion
+            const wavePhase = phase + t * Math.PI * 4;
+            const organicWave = Math.sin(wavePhase) * 2 + Math.sin(wavePhase * 2.3 + 1) * 1;
+
+            const y = p50Y + yOffset + organicWave;
+            points.push({ x, y });
+          }
+
+          // Draw smooth curve using quadratic bezier curves
+          if (points.length > 2) {
+            eqLineGraphics.moveTo(points[0].x, points[0].y);
+
+            for (let i = 1; i < points.length - 1; i++) {
+              const p0 = points[i];
+              const p1 = points[i + 1];
+              const cpX = (p0.x + p1.x) / 2;
+              const cpY = (p0.y + p1.y) / 2;
+              eqLineGraphics.quadraticCurveTo(p0.x, p0.y, cpX, cpY);
+            }
+            // Final segment
+            const lastPoint = points[points.length - 1];
+            eqLineGraphics.lineTo(lastPoint.x, lastPoint.y);
+          }
+
+          // Fixed color - cyan/teal
+          const lineColor = 0x44ccaa;
+
+          eqLineGraphics.stroke({ width: 2.5, color: lineColor, alpha: 0.9 });
+
+          // Draw P50 baseline reference (subtle)
+          eqLineGraphics.moveTo(eqStartX, p50Y);
+          eqLineGraphics.lineTo(eqEndX, p50Y);
+          eqLineGraphics.stroke({ width: 1, color: 0x445566, alpha: 0.3 });
+
+          // Position MGAS/s label
+          mgasLabel.x = eqStartX - 60;
+          mgasLabel.y = p50Y;
+          mgasLabel.style.fill = lineColor;
+        }
+      }
+
+      // ============================================
+      // PROCESS BLOCK
+      // ============================================
+      function processBlock(block) {
+        if (!block) return;
+
+        blockCount++;
+
+        const now = Date.now();
+        const gas = block.total_gas || 0;
+
+        // Calculate MGAS/s (megagas per second)
+        let mgasPerSec = 0;
+        if (gasHistory.length > 0) {
+          const prev = gasHistory[gasHistory.length - 1];
+          const timeDelta = (now - prev.timestamp) / 1000;  // seconds
+          if (timeDelta > 0) {
+            mgasPerSec = (gas / 1e6) / timeDelta;  // MGAS/s
+          }
+        }
+
+        // Store gas history
+        gasHistory.push({ timestamp: now, gas, mgasPerSec });
+        if (gasHistory.length > GAS_HISTORY_MAX) {
+          gasHistory.shift();
+        }
+
+        // Map from internal key to block field name
+        const keyToField = {
+          gas: 'total_gas',
+          kvUpdates: 'kv_updates',
+          txSize: 'tx_size',
+          daSize: 'da_size',
+          dataSize: 'data_size',
+          stateGrowth: 'state_growth'
+        };
+
+        // Calculate display values using capacity-based scaling
+        for (const key of METRIC_KEYS) {
+          const raw = block[keyToField[key]] || 0;
+
+          // Store raw value for display
+          rawValues[key] = raw;
+
+          // Convert to 0-1 scale using capacity-based scaling
+          // 0.0 = 0% capacity, 0.5 = 50% capacity, 1.0 = 100% capacity
+          const capacityValue = valueToCapacityScale(raw, key);
+          targetDisplay[key] = capacityValue;
+
+          // Equalizer bars also use capacity-based scaling (same as ring radar)
+          targetPeakUtil[key] = capacityValue;
+        }
+
+        // Calculate gauge values for compute and storage gas
+        const computeGas = block.compute_gas || 0;
+        const storageGas = block.storage_gas || 0;
+        rawValues.computeGas = computeGas;
+        rawValues.storageGas = storageGas;
+        targetComputeGas = valueToCapacityScale(computeGas, 'computeGas');
+        targetStorageGas = valueToCapacityScale(storageGas, 'storageGas');
+
+        // Update stats display
+        statsEl.textContent = `Block #${block.block_number} | ${block.tx_count} txs | Gas: ${(block.total_gas / 1e6).toFixed(1)}M (${mgasPerSec.toFixed(1)} MGAS/s) | KV: ${block.kv_updates} | State: ${block.state_growth}`;
+      }
+
+      // ============================================
+      // ANIMATION LOOP
+      // ============================================
+      let frameCount = 0;
+      const trailSnapshotInterval = 8;
+
+      app.ticker.add(() => {
+        phase += 0.025;
+
+        // Interpolate values
+        for (const key of METRIC_KEYS) {
+          currentDisplay[key] = currentDisplay[key] + (targetDisplay[key] - currentDisplay[key]) * LERP_FACTOR;
+          peakUtilization[key] = peakUtilization[key] + (targetPeakUtil[key] - peakUtilization[key]) * LERP_FACTOR;
+        }
+
+        // Interpolate gauge values
+        computeGasValue = computeGasValue + (targetComputeGas - computeGasValue) * LERP_FACTOR;
+        storageGasValue = storageGasValue + (targetStorageGas - storageGasValue) * LERP_FACTOR;
+
+        // Capture trail snapshots
+        frameCount++;
+        if (frameCount % trailSnapshotInterval === 0) {
+          trailHistory.unshift({ ...currentDisplay });
+          if (trailHistory.length > trailCount) trailHistory.pop();
+        }
+
+        // Ring radar center (left third of screen)
+        const cx = app.screen.width / 4;
+        const cy = app.screen.height / 2;
+
+        // Draw grid
+        drawGrid(cx, cy);
+
+        // Position labels
+        labelsContainer.x = cx;
+        labelsContainer.y = cy;
+
+        // Update label colors based on activity
+        for (const label of labelsContainer.children) {
+          const ep = label.userData?.endpoint;
+          if (ep) {
+            const value = currentDisplay[ep.metric] || 0.5;
+            const activity = ep.isHigh ? value : (1 - value);
+            label.style.fill = activity > 0.6 ? 0xffaa44 : 0x445566;
+          }
+        }
+
+        // Clear and redraw ribbons
+        ribbonGraphics.clear();
+
+        // Draw trails (oldest first)
+        for (let i = trailHistory.length - 1; i >= 0; i--) {
+          const trailPhase = phase - (i + 1) * 0.3;
+          let shape = calculateBlobShape(cx, cy, trailHistory[i], trailPhase);
+
+          // Radial spread for halo effect
+          const spreadPx = 8;
+          const t = (i + 1) / trailCount;
+          const scale = 1 + (t * spreadPx) / maxRadius;
+
+          shape = shape.map(p => {
+            const dx = p.x - cx;
+            const dy = p.y - cy;
+            return { x: cx + dx * scale, y: cy + dy * scale };
+          });
+
+          const color = getTrailColor(i + 1, trailCount + 1);
+          const alpha = 0.8 - (i / trailCount) * 0.7;
+          const lineWidth = Math.max(0.5, 2.0 - (i / trailCount) * 1.5);
+          drawShape(ribbonGraphics, shape, color, alpha, lineWidth);
+        }
+
+        // Draw current blob on top
+        const currentShape = calculateBlobShape(cx, cy, currentDisplay, phase);
+        drawShape(ribbonGraphics, currentShape, 0xffff88, 0.95, 2.5);
+
+        // Draw equalizer bars (top-right)
+        drawEqualizer();
+
+        // Draw gauges (bottom-right)
+        drawGauges();
+      });
+
+      // ============================================
+      // WEBSOCKET
+      // ============================================
+      let ws = null;
+      let reconnectAttempts = 0;
+
+      async function fetchInitialBlocks() {
+        try {
+          const response = await fetch(INITIAL_BLOCKS_URL);
+          const blocks = await response.json();
+          console.log('Loaded', blocks.length, 'initial blocks');
+
+          // Process oldest first
+          const reversed = [...blocks].reverse();
+          for (const block of reversed) {
+            processBlock(block);
+          }
+
+          // Initialize current to match target
+          for (const key of METRIC_KEYS) {
+            currentDisplay[key] = targetDisplay[key];
+            peakUtilization[key] = targetPeakUtil[key];
+          }
+
+          // Initialize gauge values
+          computeGasValue = targetComputeGas;
+          storageGasValue = targetStorageGas;
+
+          // Pre-fill trail history
+          for (let i = 0; i < trailCount; i++) {
+            trailHistory.push({ ...currentDisplay });
+          }
+        } catch (error) {
+          console.error('Failed to fetch initial blocks:', error);
+        }
+      }
+
+      function connect() {
+        statusEl.textContent = 'Connecting...';
+        statusEl.className = '';
+
+        ws = new WebSocket(WS_URL);
+
+        ws.onopen = () => {
+          statusEl.textContent = 'Connected - Live';
+          statusEl.className = 'connected';
+          reconnectAttempts = 0;
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.block) {
+              processBlock(data.block);
+            }
+          } catch (error) {
+            console.error('Parse error:', error);
+          }
+        };
+
+        ws.onerror = () => {
+          statusEl.textContent = 'Connection error';
+          statusEl.className = 'error';
+        };
+
+        ws.onclose = () => {
+          statusEl.textContent = 'Disconnected';
+          statusEl.className = 'error';
+          if (reconnectAttempts < 10) {
+            reconnectAttempts++;
+            setTimeout(connect, 2000 * Math.pow(1.5, reconnectAttempts - 1));
+          }
+        };
+      }
+
+      // ============================================
+      // START
+      // ============================================
+      await fetchInitialBlocks();
+      connect();
+
+      window.addEventListener('resize', () => {
+        app.renderer.resize(window.innerWidth, window.innerHeight);
+      });
+
+      console.log('=== MEGAVIZ RING RADAR + CHARTS LOADED ===');
+      console.log('Layout: Ring radar (left) | Equalizer bars (top-right) | Gauge charts (bottom-right)');
+      console.log('Visualization mode: Capacity-based (% of absolute block limits)');
+      console.log('Color scale: Green (0-33%) | Yellow (33-66%) | Red (66-100%)');
+    </script>
+  </body>
+</html>

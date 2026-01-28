@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-01-22T18:09:04.322Z",
+  "megaethClaimed": {
+    "latencyMs": 55,
+    "blockTimeMs": 10
+  },
+  "results": {
+    "gameMoves": {
+      "label": "GameMoves Contract",
+      "count": 6,
+      "min": 1000,
+      "max": 2000,
+      "avg": 1666.6666666666667,
+      "p50": 2000,
+      "p95": 2000,
+      "p99": 2000
+    }
+  }
+}
