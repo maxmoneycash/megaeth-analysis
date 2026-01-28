@@ -1,5 +1,5 @@
-metric,megaeth_claim,measured_avg,measured_worst,times_worse,verdict
-TPS Capacity,"100,000+ TPS",21.0K,15.9K,4.8x below claim,INFLATED (99% synthetic)
-Block Time,10ms,9.32ms,9.82ms,Within spec,PASSED
-Gas Throughput,~2000 MGas/s,2048 MGas/s,1732 MGas/s,15% drop,UNSTABLE
-Traffic Authenticity,Real user transactions,~99% synthetic,71% dust spam + 29% fake DEX,N/A,FAKE TRAFFIC
+metric,megaeth_claim,measured_avg,measured_worst,gap,verdict
+TPS Capacity,"100,000+ TPS",211 TPS,148 TPS,475x below claim,INFLATED
+Gas Throughput,~2000 MGas/s,2053 MGas,1457 MGas,29% drop at worst,UNSTABLE
+Consistency,Stable performance,σ=14.4 MGas,4 anomalies,Multiple outages,UNRELIABLE
+Traffic Type,Real user transactions,~99% synthetic,Dust spam + fake DEX,N/A,FAKE TRAFFIC
