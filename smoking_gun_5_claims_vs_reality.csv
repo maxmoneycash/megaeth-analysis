@@ -1,0 +1,6 @@
+metric,megaeth_claim,measured_avg,measured_worst,times_worse,verdict
+Transaction Latency,55ms,1533ms,6000ms,109x,FAILED
+TPS Capacity,"100,000+ TPS",21.0K,15.9K,6.3x below claim,INFLATED (99% synthetic)
+Block Time,10ms,9.32ms,9.82ms,Within spec,PASSED
+Gas Throughput,~2000 MGas/s,2048 MGas/s,1732 MGas/s,15% drop,UNSTABLE
+Traffic Authenticity,Real user transactions,~99% synthetic,71% dust spam + 29% fake DEX,N/A,FAKE TRAFFIC
