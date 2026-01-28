@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-01-28T00:15:01.965Z",
+  "generatedAt": "2026-01-28T01:48:52.169Z",
   "summary": {
-    "totalAnomalies": 716,
-    "gasSpikes": 716,
+    "totalAnomalies": 730,
+    "gasSpikes": 730,
     "tpsDrops": 0,
     "blockTimeSpikes": 0,
     "maxGasMGas": 2061.1547,
@@ -12,9 +12,9 @@
     "maxBlockIntervalMs": 9.824791,
     "minBlockIntervalMs": 9.18997,
     "dataPoints": {
-      "gas7d": 716,
-      "tps7d": 716,
-      "interval7d": 716
+      "gas7d": 730,
+      "tps7d": 730,
+      "interval7d": 730
     }
   },
   "replayTimestamps": [
@@ -41,6 +41,14 @@
       "severity": "critical",
       "message": "Gas spike: 2060.0 MGas/s (CRITICAL)",
       "value": 2059.9918
+    },
+    {
+      "timestamp": 1769564891000,
+      "isoTime": "2026-01-28T01:48:11.000Z",
+      "type": "gas",
+      "severity": "critical",
+      "message": "Gas spike: 2059.9 MGas/s (CRITICAL)",
+      "value": 2059.9316
     },
     {
       "timestamp": 1769539691000,
@@ -169,14 +177,6 @@
       "severity": "critical",
       "message": "Gas spike: 2058.5 MGas/s (CRITICAL)",
       "value": 2058.549
-    },
-    {
-      "timestamp": 1769517851000,
-      "isoTime": "2026-01-27T12:44:11.000Z",
-      "type": "gas",
-      "severity": "critical",
-      "message": "Gas spike: 2058.5 MGas/s (CRITICAL)",
-      "value": 2058.5478
     }
   ],
   "gasSpikes": [
@@ -200,6 +200,13 @@
       "value": 2059.9918,
       "severity": "critical",
       "message": "Gas spike: 2060.0 MGas/s (CRITICAL)"
+    },
+    {
+      "timestamp": 1769564891000,
+      "isoTime": "2026-01-28T01:48:11.000Z",
+      "value": 2059.9316,
+      "severity": "critical",
+      "message": "Gas spike: 2059.9 MGas/s (CRITICAL)"
     },
     {
       "timestamp": 1769539691000,
@@ -349,6 +356,13 @@
       "message": "Gas spike: 2058.3 MGas/s (CRITICAL)"
     },
     {
+      "timestamp": 1769564471000,
+      "isoTime": "2026-01-28T01:41:11.000Z",
+      "value": 2058.2811,
+      "severity": "critical",
+      "message": "Gas spike: 2058.3 MGas/s (CRITICAL)"
+    },
+    {
       "timestamp": 1769529611000,
       "isoTime": "2026-01-27T16:00:11.000Z",
       "value": 2058.2148,
@@ -370,6 +384,13 @@
       "message": "Gas spike: 2058.2 MGas/s (CRITICAL)"
     },
     {
+      "timestamp": 1769562791000,
+      "isoTime": "2026-01-28T01:13:11.000Z",
+      "value": 2058.1623,
+      "severity": "critical",
+      "message": "Gas spike: 2058.2 MGas/s (CRITICAL)"
+    },
+    {
       "timestamp": 1769539271000,
       "isoTime": "2026-01-27T18:41:11.000Z",
       "value": 2058.1344,
@@ -384,6 +405,13 @@
       "message": "Gas spike: 2058.1 MGas/s (CRITICAL)"
     },
     {
+      "timestamp": 1769561951000,
+      "isoTime": "2026-01-28T00:59:11.000Z",
+      "value": 2058.007,
+      "severity": "critical",
+      "message": "Gas spike: 2058.0 MGas/s (CRITICAL)"
+    },
+    {
       "timestamp": 1769515331000,
       "isoTime": "2026-01-27T12:02:11.000Z",
       "value": 2057.9278,
@@ -394,6 +422,13 @@
       "timestamp": 1769538851000,
       "isoTime": "2026-01-27T18:34:11.000Z",
       "value": 2057.8952,
+      "severity": "critical",
+      "message": "Gas spike: 2057.9 MGas/s (CRITICAL)"
+    },
+    {
+      "timestamp": 1769562371000,
+      "isoTime": "2026-01-28T01:06:11.000Z",
+      "value": 2057.8602,
       "severity": "critical",
       "message": "Gas spike: 2057.9 MGas/s (CRITICAL)"
     },
@@ -494,41 +529,6 @@
       "value": 2057.3745,
       "severity": "critical",
       "message": "Gas spike: 2057.4 MGas/s (CRITICAL)"
-    },
-    {
-      "timestamp": 1769510711000,
-      "isoTime": "2026-01-27T10:45:11.000Z",
-      "value": 2057.3548,
-      "severity": "critical",
-      "message": "Gas spike: 2057.4 MGas/s (CRITICAL)"
-    },
-    {
-      "timestamp": 1769545151000,
-      "isoTime": "2026-01-27T20:19:11.000Z",
-      "value": 2057.3417,
-      "severity": "critical",
-      "message": "Gas spike: 2057.3 MGas/s (CRITICAL)"
-    },
-    {
-      "timestamp": 1769558591000,
-      "isoTime": "2026-01-28T00:03:11.000Z",
-      "value": 2057.336,
-      "severity": "critical",
-      "message": "Gas spike: 2057.3 MGas/s (CRITICAL)"
-    },
-    {
-      "timestamp": 1769534231000,
-      "isoTime": "2026-01-27T17:17:11.000Z",
-      "value": 2057.3344,
-      "severity": "critical",
-      "message": "Gas spike: 2057.3 MGas/s (CRITICAL)"
-    },
-    {
-      "timestamp": 1769514071000,
-      "isoTime": "2026-01-27T11:41:11.000Z",
-      "value": 2057.3092,
-      "severity": "critical",
-      "message": "Gas spike: 2057.3 MGas/s (CRITICAL)"
     }
   ],
   "tpsDrops": [],
@@ -3398,6 +3398,62 @@
       {
         "timestamp": 1769559011,
         "value": 2057854300
+      },
+      {
+        "timestamp": 1769559431,
+        "value": 2057101400
+      },
+      {
+        "timestamp": 1769559851,
+        "value": 2056896300
+      },
+      {
+        "timestamp": 1769560271,
+        "value": 2057182300
+      },
+      {
+        "timestamp": 1769560691,
+        "value": 2056410500
+      },
+      {
+        "timestamp": 1769561111,
+        "value": 2056014600
+      },
+      {
+        "timestamp": 1769561531,
+        "value": 2055275600
+      },
+      {
+        "timestamp": 1769561951,
+        "value": 2058007000
+      },
+      {
+        "timestamp": 1769562371,
+        "value": 2057860200
+      },
+      {
+        "timestamp": 1769562791,
+        "value": 2058162300
+      },
+      {
+        "timestamp": 1769563211,
+        "value": 2057366800
+      },
+      {
+        "timestamp": 1769563631,
+        "value": 2056847400
+      },
+      {
+        "timestamp": 1769564051,
+        "value": 2057080200
+      },
+      {
+        "timestamp": 1769564471,
+        "value": 2058281100
+      },
+      {
+        "timestamp": 1769564891,
+        "value": 2059931600
       }
     ],
     "tps7d": [
@@ -6264,6 +6320,62 @@
       {
         "timestamp": 1769559011,
         "value": 21120.71
+      },
+      {
+        "timestamp": 1769559431,
+        "value": 21114.262
+      },
+      {
+        "timestamp": 1769559851,
+        "value": 21110.775
+      },
+      {
+        "timestamp": 1769560271,
+        "value": 21113.53
+      },
+      {
+        "timestamp": 1769560691,
+        "value": 21105.629
+      },
+      {
+        "timestamp": 1769561111,
+        "value": 21099.096
+      },
+      {
+        "timestamp": 1769561531,
+        "value": 21090.967
+      },
+      {
+        "timestamp": 1769561951,
+        "value": 21119.86
+      },
+      {
+        "timestamp": 1769562371,
+        "value": 21118.754
+      },
+      {
+        "timestamp": 1769562791,
+        "value": 21121.617
+      },
+      {
+        "timestamp": 1769563211,
+        "value": 21113.404
+      },
+      {
+        "timestamp": 1769563631,
+        "value": 21107.322
+      },
+      {
+        "timestamp": 1769564051,
+        "value": 21109.102
+      },
+      {
+        "timestamp": 1769564471,
+        "value": 21118.365
+      },
+      {
+        "timestamp": 1769564891,
+        "value": 21134.652
       }
     ],
     "interval7d": [
@@ -9130,6 +9242,62 @@
       {
         "timestamp": 1769559011,
         "value": 9.390931
+      },
+      {
+        "timestamp": 1769559431,
+        "value": 9.376465
+      },
+      {
+        "timestamp": 1769559851,
+        "value": 9.380235
+      },
+      {
+        "timestamp": 1769560271,
+        "value": 9.60439
+      },
+      {
+        "timestamp": 1769560691,
+        "value": 9.583134
+      },
+      {
+        "timestamp": 1769561111,
+        "value": 9.260076
+      },
+      {
+        "timestamp": 1769561531,
+        "value": 9.261505
+      },
+      {
+        "timestamp": 1769561951,
+        "value": 9.260484
+      },
+      {
+        "timestamp": 1769562371,
+        "value": 9.2651825
+      },
+      {
+        "timestamp": 1769562791,
+        "value": 9.249675
+      },
+      {
+        "timestamp": 1769563211,
+        "value": 9.245195
+      },
+      {
+        "timestamp": 1769563631,
+        "value": 9.261505
+      },
+      {
+        "timestamp": 1769564051,
+        "value": 9.242958
+      },
+      {
+        "timestamp": 1769564471,
+        "value": 9.258239
+      },
+      {
+        "timestamp": 1769564891,
+        "value": 9.403126
       }
     ]
   }
