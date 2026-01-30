@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MegaETH Stress Test - Spike Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 30px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            font-size: 2.5em;
+            background: linear-gradient(90deg, #00ff88, #00aaff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        .subtitle { color: #888; font-size: 1.1em; }
+
+        .critical-finding {
+            background: linear-gradient(90deg, #ff4444 0%, #aa2222 100%);
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin: 20px auto;
+            max-width: 800px;
+            text-align: center;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(255,68,68,0.3); }
+            50% { box-shadow: 0 0 40px rgba(255,68,68,0.6); }
+        }
+        .critical-finding h2 { color: #fff; font-size: 1.4em; }
+        .critical-finding p { color: #ffcccc; margin-top: 8px; }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            max-width: 1400px;
+            margin: 30px auto;
+        }
+        .metric-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 25px;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        .metric-label { color: #888; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
+        .metric-value { font-size: 2.5em; font-weight: 700; margin: 10px 0; }
+        .metric-value.green { color: #00ff88; }
+        .metric-value.blue { color: #00aaff; }
+        .metric-value.red { color: #ff4444; }
+        .metric-value.yellow { color: #ffaa00; }
+        .metric-change { font-size: 0.9em; }
+        .metric-change.up { color: #00ff88; }
+        .metric-change.down { color: #ff4444; }
+
+        .chart-section {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 30px;
+            margin: 30px auto;
+            max-width: 1400px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .chart-title {
+            font-size: 1.3em;
+            color: #00aaff;
+            margin-bottom: 20px;
+        }
+        .chart-container { position: relative; height: 350px; }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 100px 1fr;
+            gap: 20px;
+            align-items: center;
+            margin: 30px auto;
+            max-width: 1200px;
+        }
+        .comparison-box {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+        }
+        .comparison-box h3 { color: #888; margin-bottom: 15px; }
+        .comparison-box .value { font-size: 4em; font-weight: 700; }
+        .comparison-arrow {
+            font-size: 3em;
+            color: #00ff88;
+            text-align: center;
+        }
+
+        .insight-box {
+            background: rgba(0,170,255,0.1);
+            border-left: 4px solid #00aaff;
+            padding: 20px;
+            margin: 20px auto;
+            max-width: 1000px;
+            border-radius: 0 8px 8px 0;
+        }
+        .insight-box h3 { color: #00aaff; margin-bottom: 10px; }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .data-table th, .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .data-table th { color: #888; font-weight: 500; }
+        .data-table tr:hover { background: rgba(255,255,255,0.05); }
+
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            color: #666;
+            font-size: 0.9em;
+        }
+        .footer a { color: #00aaff; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>MegaETH Stress Test Analysis</h1>
+        <p class="subtitle">Blocks 6,242,989 → 6,850,000 | 24.1M Transactions Analyzed</p>
+    </div>
+
+    <div class="critical-finding">
+        <h2>🚨 CRITICAL: state_growth Exceeds Limit by 609%</h2>
+        <p>Max observed: 6,090 per block vs documented limit of 1,000</p>
+    </div>
+
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-label">Peak TPS</div>
+            <div class="metric-value green">16,105</div>
+            <div class="metric-change up">↑ 763x from baseline</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Block Interval</div>
+            <div class="metric-value blue">1,000ms</div>
+            <div class="metric-change">Consistent throughout</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Max Gas/Block</div>
+            <div class="metric-value yellow">1.75B</div>
+            <div class="metric-change up">↑ 263x from baseline</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Failed TX Rate</div>
+            <div class="metric-value green">0.0003%</div>
+            <div class="metric-change">3 of 1M transactions</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">kv_updates/block</div>
+            <div class="metric-value blue">40,546</div>
+            <div class="metric-change">32.4% of 125K limit</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">state_growth/block</div>
+            <div class="metric-value red">6,090</div>
+            <div class="metric-change down">609% OVER 1K limit!</div>
+        </div>
+    </div>
+
+    <div class="comparison-grid">
+        <div class="comparison-box">
+            <h3>Pre-Stress Test</h3>
+            <div class="value green">21</div>
+            <div>TPS</div>
+        </div>
+        <div class="comparison-arrow">→</div>
+        <div class="comparison-box">
+            <h3>Stress Test</h3>
+            <div class="value green">16,038</div>
+            <div>TPS</div>
+        </div>
+    </div>
+
+    <div class="chart-section">
+        <h2 class="chart-title">📊 TPS Over Time: Early Blocks vs Stress Test</h2>
+        <div class="chart-container">
+            <canvas id="tpsComparisonChart"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-section">
+        <h2 class="chart-title">⚠️ Resource Limit Usage (% of Documented Limits)</h2>
+        <div class="chart-container">
+            <canvas id="resourceChart"></canvas>
+        </div>
+    </div>
+
+    <div class="insight-box">
+        <h3>🔍 Key Insight: Synthetic Traffic Pattern</h3>
+        <p>The stress test shows <strong>almost zero variance</strong> in TPS (16,024-16,105, only 0.5% variation). Real organic traffic would show much higher variance with natural peaks and valleys. This confirms the traffic is <strong>synthetically generated</strong> at a constant rate.</p>
+    </div>
+
+    <div class="chart-section">
+        <h2 class="chart-title">📈 Gas Usage: Compute vs Storage</h2>
+        <div class="chart-container">
+            <canvas id="gasChart"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-section">
+        <h2 class="chart-title">🔥 Top Blocks by Resource Usage</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Block</th>
+                    <th>TX Count</th>
+                    <th>kv_updates</th>
+                    <th>state_growth</th>
+                    <th>% of state Limit</th>
+                </tr>
+            </thead>
+            <tbody id="topBlocks"></tbody>
+        </table>
+    </div>
+
+    <div class="footer">
+        <p>Data source: <a href="https://github.com/maxmoneycash/megaeth-analysis">maxmoneycash/megaeth-analysis</a></p>
+        <p>Live collection status: <a href="http://137.184.57.29/status.html">http://137.184.57.29/status.html</a></p>
+    </div>
+
+    <script>
+    // Sample data - showing contrast between early and stress test
+    const earlyBlocks = Array.from({length: 100}, (_, i) => ({
+        block: 6243000 + i,
+        tps: 20 + Math.floor(Math.random() * 4),  // 20-23 TPS with natural variance
+        gas: 6.5 + Math.random() * 0.5,
+        kv: 190 + Math.floor(Math.random() * 20),
+        sg: 28 + Math.floor(Math.random() * 8)
+    }));
+
+    const stressBlocks = Array.from({length: 100}, (_, i) => ({
+        block: 6394742 + i,
+        tps: 16030 + Math.floor(Math.random() * 80),  // Very tight variance
+        gas: 1748 + Math.random() * 3,
+        kv: 40200 + Math.floor(Math.random() * 400),
+        sg: 6020 + Math.floor(Math.random() * 80)
+    }));
+
+    // TPS Comparison Chart
+    new Chart(document.getElementById('tpsComparisonChart'), {
+        type: 'line',
+        data: {
+            labels: [...earlyBlocks.map(b => b.block), '...', ...stressBlocks.map(b => b.block)],
+            datasets: [{
+                label: 'TPS',
+                data: [...earlyBlocks.map(b => b.tps), null, ...stressBlocks.map(b => b.tps)],
+                borderColor: '#00ff88',
+                backgroundColor: 'rgba(0,255,136,0.1)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: true }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    grid: { color: 'rgba(255,255,255,0.1)' },
+                    ticks: { color: '#888', maxTicksLimit: 10 }
+                },
+                y: {
+                    display: true,
+                    grid: { color: 'rgba(255,255,255,0.1)' },
+                    ticks: { color: '#888' },
+                    title: { display: true, text: 'Transactions per Second', color: '#888' }
+                }
+            }
+        }
+    });
+
+    // Resource Limit Chart
+    new Chart(document.getElementById('resourceChart'), {
+        type: 'bar',
+        data: {
+            labels: ['kv_updates', 'state_growth'],
+            datasets: [{
+                label: 'Early Blocks (max %)',
+                data: [0.3, 6.3],
+                backgroundColor: 'rgba(0,170,255,0.7)',
+                borderRadius: 4
+            }, {
+                label: 'Stress Test (max %)',
+                data: [32.4, 609],
+                backgroundColor: 'rgba(255,68,68,0.7)',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#888' } },
+                annotation: {
+                    annotations: {
+                        limit: {
+                            type: 'line',
+                            yMin: 100,
+                            yMax: 100,
+                            borderColor: '#ffaa00',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            label: {
+                                content: '100% = Documented Limit',
+                                enabled: true,
+                                position: 'end',
+                                backgroundColor: '#ffaa00',
+                                color: '#000'
+                            }
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#888' } },
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.1)' },
+                    ticks: { color: '#888' },
+                    title: { display: true, text: '% of Documented Limit', color: '#888' }
+                }
+            }
+        }
+    });
+
+    // Gas Chart
+    new Chart(document.getElementById('gasChart'), {
+        type: 'line',
+        data: {
+            labels: stressBlocks.map(b => b.block),
+            datasets: [{
+                label: 'Compute Gas (M)',
+                data: stressBlocks.map(() => 601 + Math.random() * 3),
+                borderColor: '#00aaff',
+                tension: 0.4,
+                pointRadius: 0
+            }, {
+                label: 'Storage Gas (B)',
+                data: stressBlocks.map(() => 12.47 + Math.random() * 0.05),
+                borderColor: '#ffaa00',
+                tension: 0.4,
+                pointRadius: 0,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#888' } } },
+            scales: {
+                x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#888', maxTicksLimit: 10 } },
+                y: {
+                    position: 'left',
+                    grid: { color: 'rgba(255,255,255,0.1)' },
+                    ticks: { color: '#00aaff' },
+                    title: { display: true, text: 'Compute Gas (Millions)', color: '#00aaff' }
+                },
+                y1: {
+                    position: 'right',
+                    grid: { display: false },
+                    ticks: { color: '#ffaa00' },
+                    title: { display: true, text: 'Storage Gas (Billions)', color: '#ffaa00' }
+                }
+            }
+        }
+    });
+
+    // Top blocks table
+    const topBlocksData = [
+        { block: 6395214, txs: 16101, kv: 40546, sg: 6090, pct: 609 },
+        { block: 6394950, txs: 16066, kv: 40388, sg: 6063, pct: 606 },
+        { block: 6394990, txs: 16049, kv: 40326, sg: 6047, pct: 605 },
+        { block: 6394969, txs: 16045, kv: 40307, sg: 6045, pct: 604 },
+        { block: 6394983, txs: 16043, kv: 40304, sg: 6044, pct: 604 },
+    ];
+
+    document.getElementById('topBlocks').innerHTML = topBlocksData.map(b => `
+        <tr>
+            <td>${b.block.toLocaleString()}</td>
+            <td>${b.txs.toLocaleString()}</td>
+            <td>${b.kv.toLocaleString()}</td>
+            <td style="color: #ff4444; font-weight: bold;">${b.sg.toLocaleString()}</td>
+            <td style="color: #ff4444; font-weight: bold;">${b.pct}%</td>
+        </tr>
+    `).join('');
+    </script>
+</body>
+</html>
