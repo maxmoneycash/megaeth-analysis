@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MegaETH Stress Test Anomalies</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            margin: 0; padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { text-align: center; color: #00ff88; margin-bottom: 10px; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 30px; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .stat-value { font-size: 2.5em; font-weight: bold; color: #00ff88; }
+        .stat-label { color: #888; margin-top: 5px; }
+        .stat-card.warning .stat-value { color: #ff6b6b; }
+        .stat-card.alert .stat-value { color: #ffd93d; }
+        .chart-container {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .chart-title { font-size: 1.2em; margin-bottom: 15px; color: #fff; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        th { background: rgba(0,255,136,0.1); color: #00ff88; }
+        tr:hover { background: rgba(255,255,255,0.05); }
+        .highlight { color: #ff6b6b; font-weight: bold; }
+        .section { margin: 40px 0; }
+        .section-title {
+            font-size: 1.5em;
+            color: #00ff88;
+            border-bottom: 2px solid #00ff88;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MegaETH Stress Test Anomaly Dashboard</h1>
+        <p class="subtitle">Blocks 6,242,989 - 6,850,000 | 1,585 samples | 7.66M transactions analyzed</p>
+
+        <div class="stats-grid">
+            <div class="stat-card warning">
+                <div class="stat-value">35</div>
+                <div class="stat-label">Blocks with Failures</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="stat-value">39</div>
+                <div class="stat-label">Total Failed TXs</div>
+            </div>
+            <div class="stat-card alert">
+                <div class="stat-value">32,321</div>
+                <div class="stat-label">Peak TXs/Block</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">2.73B</div>
+                <div class="stat-label">Peak Gas/Block</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="stat-value">-98.3%</div>
+                <div class="stat-label">TPS Crash</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">15</div>
+                <div class="stat-label">Gas Anomaly Blocks</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">TPS Timeline During Stress Test</div>
+            <div class="chart-container">
+                <canvas id="tpsChart"></canvas>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Failed Transaction Blocks</div>
+            <table>
+                <tr>
+                    <th>Block</th>
+                    <th>Failed TXs</th>
+                    <th>Total TXs</th>
+                    <th>Failure Rate</th>
+                    <th>Severity</th>
+                </tr>
+                <tr><td>6304789</td><td class="highlight">3</td><td>15,909</td><td>0.019%</td><td>Medium</td></tr>
+                <tr><td>6303989</td><td class="highlight">2</td><td>15,964</td><td>0.013%</td><td>Low</td></tr>
+                <tr><td>6305589</td><td class="highlight">2</td><td>11,138</td><td>0.018%</td><td>Low</td></tr>
+                <tr><td>6305839</td><td class="highlight">1</td><td>34</td><td class="highlight">2.94%</td><td>HIGH</td></tr>
+                <tr><td>6305889</td><td class="highlight">1</td><td>36</td><td class="highlight">2.78%</td><td>HIGH</td></tr>
+                <tr><td>6257739</td><td>1</td><td>32,022</td><td>0.003%</td><td>Low</td></tr>
+                <tr><td>6560200</td><td>1</td><td>21,077</td><td>0.005%</td><td>Low</td></tr>
+                <tr><td>6561400</td><td>1</td><td>21,101</td><td>0.005%</td><td>Low</td></tr>
+                <tr><td>6562000</td><td>1</td><td>21,087</td><td>0.005%</td><td>Low</td></tr>
+                <tr><td>6410800</td><td>1</td><td>16,060</td><td>0.006%</td><td>Low</td></tr>
+                <tr><td>6414000</td><td>1</td><td>16,072</td><td>0.006%</td><td>Low</td></tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Gas Anomaly Blocks (>2σ)</div>
+            <table>
+                <tr>
+                    <th>Block</th>
+                    <th>Gas Used</th>
+                    <th>Deviation</th>
+                    <th>TX Count</th>
+                </tr>
+                <tr><td>6258089</td><td>2,734,095,955</td><td class="highlight">+2.72σ</td><td>32,321</td></tr>
+                <tr><td>6257539</td><td>2,719,991,919</td><td class="highlight">+2.70σ</td><td>32,231</td></tr>
+                <tr><td>6257739</td><td>2,707,680,010</td><td class="highlight">+2.69σ</td><td>32,022</td></tr>
+                <tr><td>6257589</td><td>2,707,241,024</td><td class="highlight">+2.69σ</td><td>32,012</td></tr>
+                <tr><td>6257839</td><td>2,696,816,661</td><td class="highlight">+2.67σ</td><td>31,847</td></tr>
+                <tr><td>6257689</td><td>2,693,046,631</td><td class="highlight">+2.67σ</td><td>31,756</td></tr>
+                <tr><td>6257889</td><td>2,687,715,839</td><td class="highlight">+2.66σ</td><td>31,652</td></tr>
+                <tr><td>6257939</td><td>2,680,017,943</td><td class="highlight">+2.65σ</td><td>31,580</td></tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <div class="section-title">TPS Transitions (Major Events)</div>
+            <div class="chart-container">
+                <canvas id="transitionChart"></canvas>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Key Findings for Investigation</div>
+            <div style="background: rgba(255,107,107,0.1); padding: 20px; border-radius: 12px; border-left: 4px solid #ff6b6b;">
+                <h3 style="color: #ff6b6b; margin-top: 0;">Critical Observations</h3>
+                <ul>
+                    <li><strong>Blocks 6305839 & 6305889</strong>: Highest failure rates (2.94% and 2.78%) during low-traffic period</li>
+                    <li><strong>Block range 6303989-6305889</strong>: Failure cluster - 25+ failures in ~2000 blocks</li>
+                    <li><strong>Block 6258439</strong>: TPS crash initiation point (26,455 → 12,727 in one block)</li>
+                    <li><strong>All gas anomalies</strong>: Concentrated in blocks 6257xxx-6258xxx (stress test peak)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // TPS Timeline
+        const tpsCtx = document.getElementById('tpsChart').getContext('2d');
+        new Chart(tpsCtx, {
+            type: 'line',
+            data: {
+                labels: ['6257439', '6257489', '6257539', '6258089', '6258389', '6258439', '6258539', '6260289', '6301139', '6302239', '6550000', '6700000'],
+                datasets: [{
+                    label: 'Transactions per Block',
+                    data: [21, 6024, 32231, 32321, 26455, 12727, 4686, 561, 6028, 15957, 21065, 21065],
+                    borderColor: '#00ff88',
+                    backgroundColor: 'rgba(0,255,136,0.1)',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { labels: { color: '#e0e0e0' }}},
+                scales: {
+                    y: {
+                        title: { display: true, text: 'TX Count', color: '#888' },
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: '#888' }
+                    },
+                    x: {
+                        title: { display: true, text: 'Block Number', color: '#888' },
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: '#888' }
+                    }
+                }
+            }
+        });
+
+        // Transition Events
+        const transCtx = document.getElementById('transitionChart').getContext('2d');
+        new Chart(transCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Spike Start', 'Peak', 'Crash Start', 'Crash Bottom', 'Recovery'],
+                datasets: [{
+                    label: 'TX Count Change',
+                    data: [26207, 32321, -13728, -1552, 9973],
+                    backgroundColor: ['#00ff88', '#00ff88', '#ff6b6b', '#ff6b6b', '#ffd93d']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { labels: { color: '#e0e0e0' }}},
+                scales: {
+                    y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#888' }},
+                    x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#888' }}
+                }
+            }
+        });
+    </script>
+</body>
+</html>
